@@ -78,25 +78,25 @@ def repo() -> DataRepository:
     # shared with a different company.
     rows += _policies(
         "BIG",
-        ["Tecnologías Bajío S.A. de C.V.", "TECNOLOGIAS BAJIO SACV", "Bajío S.A. de C.V."],
+        ["Tecnologías Arcoíris S.A. de C.V.", "TECNOLOGIAS ARCOIRIS SACV", "Arcoíris S.A. de C.V."],
         "Tamaulipas",
         50,
         industry="Construcción",
     )
-    rows += _policies("SMALL", ["Tecnologías Bajío S.A. de C.V."], "Veracruz", 2)
-    rows += _policies("SC", ["Tecnologías Bajío S.C."], "Querétaro", 5)
+    rows += _policies("SMALL", ["Tecnologías Arcoíris S.A. de C.V."], "Veracruz", 2)
+    rows += _policies("SC", ["Tecnologías Arcoíris S.C."], "Querétaro", 5)
     rows += _policies(
-        "SOL", ["Soluciones Bajío S.A. de C.V.", "Bajío S.A. de C.V."], "Michoacán", 6
+        "SOL", ["Soluciones Arcoíris S.A. de C.V.", "Arcoíris S.A. de C.V."], "Michoacán", 6
     )
     # Two homonyms without a dominant one; N2 has an active critical sanction.
-    rows += _policies("N1", ["Grupo Nova S.A."], "Jalisco", 3)
-    rows += _policies("N2", ["Grupo Nova S.A."], "Sonora", 3)
+    rows += _policies("N1", ["Grupo Quimera S.A."], "Jalisco", 3)
+    rows += _policies("N2", ["Grupo Quimera S.A."], "Sonora", 3)
     rows += _policies(
         "MOR", ["Constructora Morelos S.A. de C.V."], "Puebla", 4, industry="Construcción"
     )
     # Real company with trade names; the watchlist also lists it under an unknown ClientId.
     rows += _policies(
-        "PMX", ["Petróleos Mexicanos", "PEMEX", "Pemex"], "Ciudad de México", 3, industry="Minería"
+        "PDG", ["Petrolera del Golfo S.A.", "PDG", "Pdg"], "Ciudad de México", 3, industry="Minería"
     )
     # Client with long history and a high loss ratio.
     rows += _policies(
@@ -132,21 +132,27 @@ def repo() -> DataRepository:
     watchlist = [
         _flag(
             "W1",
-            "PMX",
-            "Petróleos Mexicanos",
+            "PDG",
+            "Petrolera del Golfo S.A.",
             "sancion_regulatoria",
             "crítico",
             "activo",
             "2020-03-30",
         ),
-        _flag("W2", "FAMS000002A1", "PEMEX", "riesgo_crediticio", "alto", "activo", "2019-05-19"),
+        _flag("W2", "WL-ONLY-01", "PDG", "riesgo_crediticio", "alto", "activo", "2019-05-19"),
         _flag(
-            "W3", "N2", "Grupo Nova S.A.", "sancion_regulatoria", "crítico", "activo", "2022-01-01"
+            "W3",
+            "N2",
+            "Grupo Quimera S.A.",
+            "sancion_regulatoria",
+            "crítico",
+            "activo",
+            "2022-01-01",
         ),
         _flag(
             "W4",
             "SMALL",
-            "Tecnologías Bajío S.A. de C.V.",
+            "Tecnologías Arcoíris S.A. de C.V.",
             "pago_incumplido",
             "medio",
             "activo",

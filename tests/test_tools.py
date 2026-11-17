@@ -23,15 +23,15 @@ def _links(flags):
 
 
 def test_confirmed_flag_and_name_only_link(screener, resolver):
-    flags = screener.screen(resolver.resolve("Pemex"))
+    flags = screener.screen(resolver.resolve("PDG"))
     assert _links(flags) == {
-        "W1": (WatchlistLink.CONFIRMED, LinkMethod.CLIENT_ID, "PMX"),
-        "W2": (WatchlistLink.POSSIBLE, LinkMethod.NAME, "PMX"),
+        "W1": (WatchlistLink.CONFIRMED, LinkMethod.CLIENT_ID, "PDG"),
+        "W2": (WatchlistLink.POSSIBLE, LinkMethod.NAME, "PDG"),
     }
 
 
 def test_homonym_flag_is_possible_not_confirmed(screener, resolver):
-    res = resolver.resolve("Tecnologías Bajío S.A. de C.V.")
+    res = resolver.resolve("Tecnologías Arcoíris S.A. de C.V.")
     assert res.client_id == "BIG"
     assert _links(screener.screen(res)) == {
         "W4": (WatchlistLink.POSSIBLE, LinkMethod.HOMONYM_CANDIDATE, "SMALL")
@@ -39,7 +39,7 @@ def test_homonym_flag_is_possible_not_confirmed(screener, resolver):
 
 
 def test_ambiguous_name_screens_all_candidates(screener, resolver):
-    flags = screener.screen(resolver.resolve("Grupo Nova S.A."))
+    flags = screener.screen(resolver.resolve("Grupo Quimera S.A."))
     assert _links(flags) == {"W3": (WatchlistLink.POSSIBLE, LinkMethod.HOMONYM_CANDIDATE, "N2")}
 
 
@@ -93,4 +93,4 @@ def test_related_entities(repo, tmp_path: Path):
         ("BITAL SA", ["BITAL"]),
         ("Missing Co", []),
     ]
-    assert RelatedEntities(repo, path).for_client("PMX") == []
+    assert RelatedEntities(repo, path).for_client("PDG") == []

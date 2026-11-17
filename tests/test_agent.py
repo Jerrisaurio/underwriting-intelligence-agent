@@ -34,7 +34,7 @@ def rule_ids(profile):
 
 
 def test_confirmed_critical_sanction_declines_and_short_circuits(pipeline):
-    p = build(pipeline, "Pemex")
+    p = build(pipeline, "PDG")
     assert p.assessment.recommended_action is A.DECLINE
     assert "R1" in rule_ids(p)
     assert p.trace.short_circuit and p.public_information.status == "skipped"
@@ -45,7 +45,7 @@ def test_confirmed_critical_sanction_declines_and_short_circuits(pipeline):
 
 
 def test_possible_flag_never_declines(pipeline):
-    p = build(pipeline, "Grupo Nova S.A.")
+    p = build(pipeline, "Grupo Quimera S.A.")
     assert p.status is ProfileStatus.AMBIGUOUS
     assert p.assessment.recommended_action is A.REFER_TO_COMPLIANCE  # R2b precedes R3
     assert {"R2b", "R3"} <= rule_ids(p)
@@ -54,7 +54,7 @@ def test_possible_flag_never_declines(pipeline):
 
 
 def test_state_hint_avoids_possible_flag(pipeline):
-    p = build(pipeline, "Grupo Nova S.A.", state="Jalisco")
+    p = build(pipeline, "Grupo Quimera S.A.", state="Jalisco")
     assert p.company_identity.client_id == "N1"
     assert p.risk_flags == []
 
@@ -78,7 +78,7 @@ def test_thin_loss_ratio_triggers_no_rule(pipeline):
 
 
 def test_homonym_resolution_reports_ambiguity_and_possible_flag(pipeline):
-    p = build(pipeline, "Tecnologías Bajío S.A. de C.V.")
+    p = build(pipeline, "Tecnologías Arcoíris S.A. de C.V.")
     assert p.status is ProfileStatus.COMPLETE and p.company_identity.client_id == "BIG"
     assert ConflictType.ENTITY_AMBIGUITY in {c.type for c in p.conflicts}
     assert ConflictType.INDUSTRY_NAME_MISMATCH in {c.type for c in p.conflicts}
@@ -109,6 +109,7 @@ def test_trace_records_every_step(pipeline):
         "watchlist_screening",
         "client_history",
         "related_entities",
+        "web_research",
         "assessment",
     ]
 
@@ -140,9 +141,9 @@ def test_entity_ambiguity_is_not_penalised_twice():
 @pytest.mark.parametrize(
     ("args", "code"),
     [
-        (["profile", "Pemex", "--as-of", "2025-06-30"], 0),
+        (["profile", "PDG", "--as-of", "2025-06-30"], 0),
         (["profile", "", "--as-of", "2025-06-30"], 2),
-        (["profile", "Pemex", "--as-of", "30/06/2025"], 2),
+        (["profile", "PDG", "--as-of", "30/06/2025"], 2),
     ],
 )
 def test_cli_exit_codes(monkeypatch, repo, args, code):
@@ -155,4 +156,4 @@ def test_cli_exit_codes(monkeypatch, repo, args, code):
 
 def test_cli_missing_data_exits_1(monkeypatch, tmp_path):
     monkeypatch.setenv("UW_DATA_DIR", str(tmp_path))
-    assert CliRunner().invoke(app, ["profile", "Pemex"]).exit_code == 1
+    assert CliRunner().invoke(app, ["profile", "PDG"]).exit_code == 1
