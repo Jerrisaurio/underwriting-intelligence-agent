@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from uw_agent.agent.conflicts import unflagged_adverse
 from uw_agent.schema.profile import (
     ClaimsPerformance,
     ConfidenceLevel,
@@ -19,6 +20,7 @@ from uw_agent.schema.profile import (
     Severity,
     TriggeredRule,
     WatchlistLink,
+    WebResearch,
 )
 
 A = RecommendedAction
@@ -38,7 +40,8 @@ LR_REFER = 1.0
 LR_CONDITIONS = 0.7
 DISPUTED_REFER = 2
 # Share of the client's claims in dispute. An absolute count alone does not scale: the largest
-# client has 103 disputed claims, but that is 12.5% of its claims, the portfolio average.
+# clients have many disputed claims in absolute terms while their disputed share equals the
+# portfolio average.
 DISPUTED_SHARE_REFER = 0.25
 
 
@@ -54,12 +57,24 @@ def _flag_label(f: RiskFlag) -> str:
     return f"{f.watchlist_id} {f.flag_type}/{f.severity}"
 
 
+def short_circuits(flags: list[RiskFlag]) -> bool:
+    """R1 can be decided before any web call: it depends only on confirmed watchlist flags."""
+    return any(
+        f.is_active
+        and f.link is WatchlistLink.CONFIRMED
+        and f.flag_type in DECLINE_TYPES
+        and f.severity == "crítico"
+        for f in flags
+    )
+
+
 def evaluate_rules(
     status: ProfileStatus,
     flags: list[RiskFlag],
     claims: ClaimsPerformance | None,
     conflicts: list[Conflict],
     confidence_level: ConfidenceLevel,
+    web: WebResearch | None = None,
     t: RuleThresholds = RuleThresholds(),
 ) -> tuple[RecommendedAction, list[TriggeredRule]]:
     fired: list[TriggeredRule] = []
@@ -155,6 +170,21 @@ def evaluate_rules(
                 "R5e",
                 A.REFER_TO_SENIOR_UNDERWRITER,
                 f"Conflicto de severidad alta {c.id}: {c.type.value}.",
+            )
+
+    # Web evidence is less authoritative than internal data: it can refer, never decline.
+    for f in unflagged_adverse(flags, web):
+        if f.risk_category in ("sanction", "fraud"):
+            fire(
+                "R2c",
+                A.REFER_TO_COMPLIANCE,
+                f"Fuente pública adversa ({f.risk_category}) sin bandera en watchlist: {f.id}.",
+            )
+        else:
+            fire(
+                "R5f",
+                A.REFER_TO_SENIOR_UNDERWRITER,
+                f"Fuente pública adversa ({f.risk_category}) sin bandera en watchlist: {f.id}.",
             )
 
     if not fired:

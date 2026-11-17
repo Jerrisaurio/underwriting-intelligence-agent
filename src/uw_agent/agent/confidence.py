@@ -25,7 +25,9 @@ from uw_agent.schema.profile import (
     ConflictType,
     Credibility,
     Relationship,
+    ResearchStatus,
     Severity,
+    WebResearch,
 )
 
 W_INTERNAL = 0.7
@@ -62,6 +64,18 @@ def internal_evidence(
         + 0.15 * (relationship.n_active_policies > 0),
         4,
     )
+
+
+def external_evidence(web: WebResearch | None) -> float:
+    """0.8 identity confirmed on the web; 0.3 only a different company found; else neutral."""
+    if web is None or web.status is not ResearchStatus.DONE:
+        return NEUTRAL_EXTERNAL
+    if any(f.entity_match == "confirmed" for f in web.findings):
+        return 0.8
+    found = web.identity is not None and web.identity.found_publicly
+    if not found and not web.findings and web.dropped_other_entity > 0:
+        return 0.3
+    return NEUTRAL_EXTERNAL
 
 
 def compute_confidence(
