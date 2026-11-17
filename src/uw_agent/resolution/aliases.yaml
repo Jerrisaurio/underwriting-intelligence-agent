@@ -1,0 +1,33 @@
+# Curated aliases that do NOT appear as name variants in the portfolio.
+#
+# Trade names and abbreviations already present in the data (PEMEX, KOF, CFE, Volaris...)
+# need no entry: the resolver indexes every spelling a ClientId has ever used.
+# This table covers names an underwriter may type that the data never uses:
+# legal names, English names, former names and new names.
+#
+# Each target must be a client_name that exists verbatim in portfolio_mexico.csv; the
+# resolver logs a warning and skips the entry when one does not.
+#
+# Evaluation note: a separate set of aliases is held out of this file on purpose (see
+# eval/generate_resolution_cases.py, HELD_OUT_ALIASES) to measure how the resolver
+# behaves on aliases nobody curated, instead of grading it on its own answer key.
+
+aliases:
+  - alias: "Banco Mercantil del Norte"
+    target: "Banorte S.A.B. de C.V."
+    type: legal_name
+  - alias: "Mexican Petroleum"
+    target: "Petróleos Mexicanos"
+    type: english_name
+  - alias: "Federal Electricity Commission"
+    target: "Comisión Federal de Electricidad"
+    type: english_name
+  - alias: "Sempra Infraestructura"
+    target: "IEnova S.A.B. de C.V."
+    type: new_name
+  - alias: "Controladora Comercial Mexicana"
+    target: "La Comer S.A.B. de C.V."
+    type: former_name
+  - alias: "Teléfonos de México"
+    target: "Telmex"
+    type: legal_name
