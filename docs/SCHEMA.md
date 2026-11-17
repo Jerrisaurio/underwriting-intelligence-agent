@@ -27,11 +27,11 @@ Conventions:
 | `claims_performance` | Claims history (see below). |
 | `risk_flags` | Watchlist entries linked to the profile (see below). |
 | `related_entities` | Corporate-group / historical-name links from a curated table. Context only: never used by the action rules. |
-| `public_information` | Web research section: `status` (`not_run` / `skipped` / `done`), `reason`, `depth`, `findings`. Reserved in v1.0 (web research is the next change). |
+| `public_information` | Web research (see below). |
 | `conflicts` | Contradictions and weaknesses in the evidence (see below). |
 | `data_gaps` | Missing information that limits the assessment, in Spanish (e.g. "Sin pólizas vigentes al 2026-11-17"). |
 | `assessment` | Recommended action, triggered rules, confidence breakdown, summary. |
-| `trace` | Steps executed with duration and detail, `short_circuit` reason, `llm_calls`, `cost_usd`. |
+| `trace` | `steps` (name, duration, detail), `short_circuit` reason, `llm_calls`, `web_search_calls`, `input_tokens`, `output_tokens`, `cost_usd` (null when an external call was made but prices are not configured: never guessed), `duration_ms`. |
 
 ## `relationship`
 
@@ -72,6 +72,22 @@ Conventions:
 | `note_contradicts_status` | `true` when a `resuelto` entry's note describes an ongoing situation. |
 | `predates_relationship` | `true` when the flag is older than the client's first policy. |
 
+## `public_information`
+
+| Field | Meaning |
+|---|---|
+| `status` | `done` · `skipped` (depth T0) · `unavailable` (no `OPENAI_API_KEY` / `UW_OPENAI_MODEL`) · `failed` (provider error after retries; the internal profile is kept). |
+| `depth`, `depth_reasons` | `T0` none · `T1` identity check (≤ 2 searches) · `T2` adverse-media search (≤ 5 searches), with the signals that chose it. |
+| `provider`, `model` | Implementation used (`openai`) and the configured model. |
+| `identity` | `found_publicly`, `description`, `industry` (only a value of the portfolio's industry list, else null), `state`. |
+| `findings[]` | `id` (`web:n`, used as evidence id), `claim` (Spanish), `url`, `source_title`, `published_date`, `risk_category` (identity, sanction, fraud, litigation, credit, payment, operations, other), `stance` (negative / neutral / positive), `entity_match` (`confirmed` / `uncertain`). |
+| `dropped_unverified` | Findings discarded because their URL was not among the sources the search tool returned (invented or unverifiable sources). |
+| `dropped_other_entity` | Findings discarded because they described a different company with a similar name. |
+| `cache_hit` | Research reused from the cache (cost 0). |
+
+Only the company name, state and depth are sent to the provider: no premiums, claims or
+watchlist content.
+
 ## `conflicts[]`
 
 Each conflict has `id`, `type`, `severity` (`low` / `medium` / `high`), Spanish `description`,
@@ -87,6 +103,9 @@ conflicts, it does not settle them).
 | `INDUSTRY_MISSING` | low | No industry recorded. |
 | `INDUSTRY_NAME_MISMATCH` | medium | The name states a line of business (Agroindustrias, Constructora, Transportes, Inmobiliaria, Tecnologías) inconsistent with the recorded industry. |
 | `DATA_ANOMALY` | low | Unreadable values or claims after `as_of_date`, excluded from metrics. |
+| `WATCHLIST_STATUS_VS_NEWS` | high | A confirmed flag is `resuelto`, but a confirmed negative web finding of the same risk category is dated after the resolution. |
+| `INDUSTRY_WEB_MISMATCH` | medium | The web industry (closed list) differs from the recorded one. |
+| `ADVERSE_MEDIA_NOT_IN_WATCHLIST` | medium | Confirmed negative sanction / fraud / litigation / credit / payment finding with no confirmed watchlist flag of that type. |
 
 ## `assessment.confidence`
 
@@ -100,7 +119,7 @@ overall = C_entity × (0.7 · C_internal + 0.3 · C_external) − Σ penalties  
 |---|---|
 | `entity` (C_entity) | Resolver confidence: name similarity, reduced by the dominance share when homonyms exist (×0.9), ≤ 0.4 when ambiguous. |
 | `internal` (C_internal) | 0.4 · min(years of history / 4, 1) + 0.3 · [credible loss ratio] + 0.15 · [industry known] + 0.15 · [≥ 1 active policy]. |
-| `external` (C_external) | 0.5 = neutral until web research exists. Absence of web evidence is not negative evidence. |
+| `external` (C_external) | 0.8 when a web finding confirms the company's identity; 0.3 when research only found a *different* company; 0.5 (neutral) otherwise, including no public footprint, skipped, unavailable or failed research. Absence of web evidence is not negative evidence: most private SMEs have none. |
 | `conflict_penalty` | 0.15 per `high`, 0.07 per `medium` conflict. `ENTITY_AMBIGUITY` is excluded (already in C_entity). |
 | `capped` | If C_entity < 0.6, overall is capped at 0.4: a detailed profile of possibly the wrong company must not look trustworthy. |
 | `level` | `HIGH` ≥ 0.75 · `MEDIUM` ≥ 0.5 · `LOW` < 0.5. |
@@ -116,13 +135,14 @@ All rules are evaluated and listed in `triggered_rules` (`rule_id`, `action`, Sp
 | Precedence | Action | Rules |
 |---|---|---|
 | 1 | `DECLINE` | **R1** confirmed active `sancion_regulatoria` or `investigacion_fraude` with severity `crítico`. Short-circuits web research. |
-| 2 | `REFER_TO_COMPLIANCE` | **R2** confirmed active sanction/fraud (non-critical) or PEP. **R2b** *possible* active sanction/fraud/PEP. |
+| 2 | `REFER_TO_COMPLIANCE` | **R2** confirmed active sanction/fraud (non-critical) or PEP. **R2b** *possible* active sanction/fraud/PEP. **R2c** confirmed web finding of sanction/fraud not in the watchlist. |
 | 3 | `NEEDS_CLARIFICATION` | **R3** name is ambiguous (no dominant client). |
 | 4 | `INSUFFICIENT_INFORMATION` | **R0** invalid input. **R4a** not found. **R4b** confidence `LOW`. |
-| 5 | `REFER_TO_SENIOR_UNDERWRITER` | **R5a** confirmed active `pago_incumplido` critical. **R5b** confirmed active `litigio_activo` / `riesgo_crediticio` high. **R5c** credible loss ratio > 100%. **R5d** ≥ 2 disputed claims that are ≥ 25% of the client's claims. **R5e** any `high` conflict. |
+| 5 | `REFER_TO_SENIOR_UNDERWRITER` | **R5a** confirmed active `pago_incumplido` critical. **R5b** confirmed active `litigio_activo` / `riesgo_crediticio` high. **R5c** credible loss ratio > 100%. **R5d** ≥ 2 disputed claims that are ≥ 25% of the client's claims. **R5e** any `high` conflict. **R5f** confirmed adverse web finding (litigation / credit / payment) not in the watchlist. |
 | 6 | `PROCEED_WITH_CONDITIONS` | **R6a** other confirmed active flags (e.g. `pago_incumplido` medium: settle before renewal). **R6b** other *possible* active flags. **R6c** credible loss ratio in (70%, 100%]. |
 | 7 | `PROCEED_STANDARD` | **R7** nothing above fired. |
 
 Resolved flags are shown but never trigger rules, unless their note contradicts the status
 (→ `WATCHLIST_NOTE_VS_STATUS`, high → R5e). `possible` flags never produce `DECLINE`: a human
-must confirm the entity first.
+must confirm the entity first. Web findings never produce `DECLINE` either: internal data is
+the authority; the web can only escalate to a human.

@@ -17,7 +17,7 @@ out of scope (next change); the schema already reserves their sections.
 | 1 | Reference date | Default `as_of_date` = today; overridable with `--as-of` / `UW_AS_OF_DATE`. Always echoed in the profile. A `data_gaps` entry is added when the client has no active policy. |
 | 2 | Client loss ratio | Σ incurred / Σ written premium over the full history, plus a breakdown by policy start year. Documented limitation: written, not earned, premium. |
 | 3 | Credibility | Loss ratio is `credible` only with ≥ 3 policies **and** ≥ 2 years of history (first policy start to as_of). Otherwise `credibility: low` and it triggers no rule. |
-| 4 | Watchlist matching | `confirmed`: ClientId of the chosen client. `possible`: other ClientIds inside the resolver ambiguity window, plus name-only matches (exact normalized core + family, or alias) for watchlist ClientIds absent from the portfolio (`FAMS…`). Never fuzzy against the watchlist. |
+| 4 | Watchlist matching | `confirmed`: ClientId of the chosen client. `possible`: other ClientIds inside the resolver ambiguity window, plus name-only matches (exact normalized core + family, or alias) for watchlist ClientIds absent from the portfolio (ClientIds absent from the portfolio). Never fuzzy against the watchlist. |
 | 5 | Resolved flags | Shown, never trigger rules. If the note contradicts the status → conflict `WATCHLIST_NOTE_VS_STATUS` → `REFER_TO_SENIOR_UNDERWRITER`. |
 | 6 | Action matrix | See "Recommended action". `possible` flags cap at `REFER_TO_COMPLIANCE`, never `DECLINE`. |
 | 7 | Short-circuit | Active critical `sancion_regulatoria` (confirmed) → `DECLINE`; internal summaries are still computed; only web research is skipped (relevant from the next change). |
