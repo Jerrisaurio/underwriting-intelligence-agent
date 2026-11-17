@@ -23,16 +23,16 @@ documented as a known limitation in the README) before submission.
 
 ## Deferred to the tools/profile phase
 
-- [ ] Watchlist match tiers: `confirmed` (ClientId) vs `possible` (name/alias), each with its
+- [x] Watchlist match tiers: `confirmed` (ClientId) vs `possible` (name/alias), each with its
       own threshold. Run it over **all** resolution candidates, not just the chosen one.
-- [ ] `WATCHLIST_NOTE_VS_STATUS` conflict (e.g. note says "en curso" but status is `resuelto`).
-- [ ] `FLAG_PREDATES_RELATIONSHIP` conflict (flag older than the client's first policy).
-- [ ] `related_entities`: corporate group / historical-name links, e.g. BITAL and HSBC are
+- [x] `WATCHLIST_NOTE_VS_STATUS` conflict (e.g. note says "en curso" but status is `resuelto`).
+- [x] `FLAG_PREDATES_RELATIONSHIP` conflict (flag older than the client's first policy).
+- [x] `related_entities`: corporate group / historical-name links, e.g. BITAL and HSBC are
       separate ClientIds; Grupo Salinas covers Elektra, TV Azteca and Banco Azteca; Telmex and
       Telcel sit under the América Móvil ClientId while FEMSA and KOF have separate ClientIds.
       Surface these, never apply them to the decision.
-- [ ] `reserved_mxn` means the registered reserve, not the outstanding one: closed claims keep
+- [x] `reserved_mxn` means the registered reserve, not the outstanding one: closed claims keep
       a reserve of 1.0–1.4× incurred. Never sum it as open exposure.
-- [ ] Credibility indicator for the client loss ratio (low exposure gives extreme loss ratios).
-- [ ] Age of open and disputed claims (some date from 2021).
+- [x] Credibility indicator for the client loss ratio (low exposure gives extreme loss ratios).
+- [x] Age of open and disputed claims (some date from 2021).
 - [ ] Data governance: only name and state go to web search; `--no-external-llm` flag.
