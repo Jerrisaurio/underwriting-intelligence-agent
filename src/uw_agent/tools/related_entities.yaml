@@ -1,0 +1,42 @@
+# Curated links between real companies (corporate groups, historical names).
+# Shown in the profile for context; NEVER used by the action rules.
+# Members are client names exactly as they appear in the portfolio; each one is mapped to its
+# ClientId at start-up (a member missing from the portfolio is still listed, with no ClientId).
+
+groups:
+  - group: Grupo Salinas
+    relation: same_group
+    members:
+      - "Grupo Elektra S.A.B. de C.V."
+      - "TV Azteca S.A.B. de C.V."
+      - "Banco Azteca S.A. Institución de Banca Múltiple"
+  - group: FEMSA
+    relation: same_group
+    note: "Coca-Cola FEMSA (KOF) y OXXO forman parte de FEMSA pero son ClientIds distintos."
+    members:
+      - "Fomento Económico Mexicano S.A.B. de C.V."
+      - "Coca-Cola FEMSA S.A.B. de C.V."
+      - "OXXO S.A. de C.V."
+  - group: Grupo Alfa
+    relation: same_group
+    members:
+      - "ALFA SAB"
+      - "Alpek S.A.B. de C.V."
+      - "Nemak S.A.B. de C.V."
+      - "Sigma Alimentos S.A. de C.V."
+  - group: Grupo Bimbo
+    relation: same_group
+    members:
+      - "Grupo Bimbo S.A. de C.V."
+      - "Barcel S.A. de C.V."
+  - group: Grupo México
+    relation: same_group
+    members:
+      - "Grupo México S.A.B. de C.V."
+      - "Ferromex S.A. de C.V."
+  - group: HSBC México
+    relation: former_name
+    note: "HSBC adquirió Grupo Financiero Bital en 2002; en el portafolio son ClientIds distintos."
+    members:
+      - "HSBC México S.A."
+      - "BITAL SA"

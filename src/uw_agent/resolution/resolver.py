@@ -95,11 +95,13 @@ class EntityResolver:
         pairs = portfolio[["ClientId", "client_name"]].drop_duplicates()
         self._by_core: dict[str, list[_Variant]] = defaultdict(list)
         self._raw_to_ids: dict[str, set[str]] = defaultdict(set)
+        self._by_client: dict[str, list[_Variant]] = defaultdict(list)
         for cid, raw in pairs.itertuples(index=False):
             variant = _Variant(cid, raw, normalize_name(raw))
             if variant.norm.core:
                 self._by_core[variant.norm.core].append(variant)
             self._raw_to_ids[raw].add(cid)
+            self._by_client[cid].append(variant)
         # Pre-compute per-core data used in the scoring loop.
         self._cores = [
             (core, frozenset(core.split()), core.replace(" ", "")) for core in self._by_core
@@ -111,6 +113,21 @@ class EntityResolver:
         return cls(repo.portfolio, repo.clients, **kwargs)
 
     # ------------------------------------------------------------------ public API
+
+    def spellings_of(self, client_id: str) -> list[NormalizedName]:
+        """Every spelling a ClientId has used, normalized."""
+        return [v.norm for v in self._by_client.get(client_id, [])]
+
+    def alias_client_ids(self, name: str) -> set[str]:
+        """ClientIds a curated alias points to (empty when the name is not an alias)."""
+        return {v.client_id for v in self._aliases.get(normalize_name(name).core, [])}
+
+    def ambiguity_window(self, result: ResolutionResult) -> list[Candidate]:
+        """Candidates close enough to the best score to count as plausible alternatives."""
+        if not result.candidates:
+            return []
+        top = max(c.score for c in result.candidates)
+        return [c for c in result.candidates if c.score >= top - self.config.ambiguity_window]
 
     def resolve(self, name: str, state: str | None = None) -> ResolutionResult:
         query = (name or "").strip()
