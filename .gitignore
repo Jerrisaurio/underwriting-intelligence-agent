@@ -12,3 +12,5 @@ eval/results/*.json
 data/*.csv
 # Challenge statement provided by the company; not redistributed.
 docs/chubb_ai_engineer_technical_challenge.pdf
+# Eval datasets are derived from the source data; regenerate with eval/generate_resolution_cases.py
+eval/datasets/*.jsonl
