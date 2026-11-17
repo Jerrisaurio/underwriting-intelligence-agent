@@ -1,0 +1,53 @@
+# Hand-labelled web evaluation set (real public companies only; no source data copied).
+#
+# Auto-graded per case:
+#   - found_publicly must match `expect_found`
+#   - identity.industry must be in `industries` (portfolio's closed list) when given
+#   - synthetic controls: zero `confirmed` findings (a fake company must not "exist" online)
+# Human review (written to eval/results/web.json, not auto-graded):
+#   - for every watchlist flag linked to the profile, the public findings of the same risk
+#     category: does public evidence confirm, contradict or ignore the internal flag? This closes
+#     the open item "verify real-company watchlist entries" (docs/OPEN_ITEMS.md). Flags are read
+#     from the data at run time, so no watchlist content is stored in this file.
+
+cases:
+  - name: "Petróleos Mexicanos"
+    expect_found: true
+    industries: ["Minería"]
+  - name: "Aerovías de México S.A. de C.V."
+    expect_found: true
+    industries: ["Transporte y Logística", "Hotelería y Turismo"]
+  - name: "Grupo Elektra S.A.B. de C.V."
+    expect_found: true
+    industries: ["Comercio al por Menor", "Servicios Financieros"]
+  - name: "TV Azteca S.A.B. de C.V."
+    expect_found: true
+    industries: null   # media: no close category in the portfolio list
+  - name: "Controladora Vuela Compañía de Aviación S.A.B. de C.V."
+    expect_found: true
+    industries: ["Transporte y Logística", "Hotelería y Turismo"]
+  - name: "Coppel S.A. de C.V."
+    expect_found: true
+    industries: ["Comercio al por Menor", "Servicios Financieros"]
+  - name: "SuKarne S.A. de C.V."
+    expect_found: true
+    industries: ["Alimentos y Bebidas", "Agricultura"]
+  - name: "Grupo Bimbo S.A. de C.V."
+    expect_found: true
+    industries: ["Alimentos y Bebidas", "Manufactura"]
+  - name: "Cemex S.A.B. de C.V."
+    expect_found: true
+    industries: ["Construcción", "Manufactura"]
+  - name: "Fresnillo plc"
+    expect_found: true
+    industries: ["Minería"]
+  - name: "Walmart de México y Centroamérica S.A.B. de C.V."
+    expect_found: true
+    industries: ["Comercio al por Menor"]
+  # Synthetic controls: these names exist only in the dataset.
+  - name: "Tecnologías Bajío S.A. de C.V."
+    expect_found: false
+    synthetic: true
+  - name: "Constructora Lagunera S. de R.L. de C.V."
+    expect_found: false
+    synthetic: true
