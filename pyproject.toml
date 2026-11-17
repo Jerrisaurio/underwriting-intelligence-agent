@@ -38,3 +38,5 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
+# Line length is enforced by `ruff format`; what remains are user-facing Spanish strings.
+ignore = ["E501"]
