@@ -22,7 +22,7 @@ class ResolutionOutcome(StrEnum):
 class MatchType(StrEnum):
     EXACT = "exact"  # same normalized core
     COMPACT = "compact"  # same core ignoring spaces ("VivaAerobus")
-    # every query word appears in the candidate name ("Bajío" -> "Tecnologías Bajío")
+    # every query word appears in the candidate name ("Arcoíris" -> "Tecnologías Arcoíris")
     PARTIAL = "partial"
     FUZZY = "fuzzy"  # typos / word order
     ALIAS = "alias"  # curated alias table

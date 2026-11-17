@@ -55,8 +55,8 @@ The system SHALL list related entities from a curated table (corporate groups, h
 without using them in action rules.
 
 #### Scenario: Historical name
-- **WHEN** the profile is for HSBC México
-- **THEN** BITAL appears as a related entity with relation `former_name`
+- **WHEN** the curated table records "Empresa Nueva" with former name "Empresa Antigua" and the profile is for Empresa Nueva
+- **THEN** Empresa Antigua appears as a related entity with relation `former_name`
 
 ### Requirement: Non-resolved outcomes
 The system SHALL return status AMBIGUOUS with candidates, their mini-summaries and action

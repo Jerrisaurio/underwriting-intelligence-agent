@@ -1,12 +1,12 @@
 """Deterministic normalization of Mexican company names.
 
-A name is split into a *core* (what identifies the business, e.g. ``TECNOLOGIAS BAJIO``)
+A name is split into a *core* (what identifies the business, e.g. ``TECNOLOGIAS ARCOIRIS``)
 and a *legal form* (``SA DE CV``, ``SAPI``...).
 
 Why the legal form is kept, not discarded: in the portfolio, the legal-form
 *family* (SA, SAPI, SAB, S de RL, SC) is constant within a ClientId (1 exception
-out of 8,565) and separates otherwise identical names. "Tecnologías Bajío S.C." and
-"Tecnologías Bajío S.A. de C.V." are different clients. The "de C.V." suffix, by
+out of 8,565) and separates otherwise identical names. "Tecnologías Arcoíris S.C." and
+"Tecnologías Arcoíris S.A. de C.V." are different clients. The "de C.V." suffix, by
 contrast, varies inside a single ClientId in 190 cases ("SAPI" vs "S.A.P.I. de
 C.V."), so it is recorded separately (``has_cv``) and only used as a weak signal.
 """
@@ -47,7 +47,7 @@ _HAS_CV = re.compile(r"(?:C\s?V|SACV)$")
 @dataclass(frozen=True)
 class NormalizedName:
     raw: str
-    core: str  # e.g. "TECNOLOGIAS BAJIO"
+    core: str  # e.g. "TECNOLOGIAS ARCOIRIS"
     legal_family: str | None  # e.g. "SA"; None when the name carries no legal form
     has_cv: bool  # True when the legal form ends in "de C.V."
 

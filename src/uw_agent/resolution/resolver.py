@@ -181,13 +181,13 @@ class EntityResolver:
             return cfg.compact_score, MatchType.COMPACT
         q_tokens = q.tokens
         if q_tokens < tokens:
-            # The user typed part of the name ("Bajío" for "Tecnologías Bajío").
+            # The user typed part of the name ("Arcoíris" for "Tecnologías Arcoíris").
             coverage = len(q.core) / len(core)
             return cfg.partial_base + cfg.partial_span * coverage, MatchType.PARTIAL
         if tokens < q_tokens:
             # The *portfolio* spelling is a truncation of the query (the data contains
-            # "Bajío S.A. de C.V." as a variant of several companies). Matching it would
-            # link "Soluciones Bajío" to "Tecnologías Bajío", so it is ignored here; the
+            # "Arcoíris S.A. de C.V." as a variant of several companies). Matching it would
+            # link "Soluciones Arcoíris" to "Tecnologías Arcoíris", so it is ignored here; the
             # candidate still matches through its full spellings.
             return None
         sim = max(fuzz.ratio(q.core, core), fuzz.token_sort_ratio(q.core, core)) / 100

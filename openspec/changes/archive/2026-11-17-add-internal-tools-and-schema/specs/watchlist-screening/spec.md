@@ -23,7 +23,7 @@ normalized name (core and legal-form family) or a curated alias equals one of th
 recorded spellings, and SHALL mark them `link: possible` with link method `name`.
 
 #### Scenario: Watchlist ClientId absent from the portfolio
-- **WHEN** watchlist entry "PEMEX" has ClientId FAMS000002A1 and the resolved client has spelling "PEMEX"
+- **WHEN** watchlist entry "ACME" has ClientId WL-ONLY-01, absent from the portfolio, and the resolved client has spelling "ACME"
 - **THEN** the entry is reported with `link: possible` and `link_method: name`
 
 ### Requirement: Note versus status

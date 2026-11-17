@@ -6,7 +6,7 @@ Three ways a watchlist entry can attach to a profile:
 - ``possible`` / ``homonym_candidate``: the entry belongs to another ClientId that the resolver
   could not rule out (inside its ambiguity window). Screening *all* plausible candidates means a
   flag is never lost just because the resolver picked the dominant homonym.
-- ``possible`` / ``name``: the watchlist ClientId does not exist in the portfolio (7 ``FAMS…``
+- ``possible`` / ``name``: the watchlist ClientId does not exist in the portfolio (some
   entries), so the only link is the name. Linked when the normalized name (core + legal-form
   family) equals one of the client's recorded spellings, or a curated alias points to the client.
 
@@ -31,7 +31,7 @@ def _date(value) -> pd.Timestamp | None:
 def _same_name(a: NormalizedName, b: NormalizedName) -> bool:
     if a.core != b.core:
         return False
-    # A missing legal form on either side is not a contradiction ("PEMEX" vs "PEMEX").
+    # A missing legal form on either side is not a contradiction ("ACME" vs "ACME S.A.").
     return a.legal_family is None or b.legal_family is None or a.legal_family == b.legal_family
 
 

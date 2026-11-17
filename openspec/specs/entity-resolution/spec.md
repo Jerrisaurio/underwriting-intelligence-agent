@@ -15,8 +15,8 @@ abbreviations (GF, ORG, CORP, CIA) and splitting the trailing legal form into a 
 results.
 
 #### Scenario: Legal-form spellings
-- **WHEN** the input is "Tecnologías Bajío SACV" or "TECNOLOGÍAS BAJÍO S.A. DE C.V."
-- **THEN** both normalize to core "TECNOLOGIAS BAJIO", family "SA", with "de C.V."
+- **WHEN** the input is "Tecnologías Arcoíris SACV" or "TECNOLOGÍAS ARCOÍRIS S.A. DE C.V."
+- **THEN** both normalize to core "TECNOLOGIAS ARCOIRIS", family "SA", with "de C.V."
 
 ### Requirement: Layered matching
 The system SHALL match the normalized core against every spelling a ClientId has used, in this
@@ -25,7 +25,7 @@ fuzzy. Fuzzy matches SHALL require every word to resemble its counterpart (ratio
 Damerau-Levenshtein edit on words of 4+ letters).
 
 #### Scenario: Typo in the distinctive word
-- **WHEN** the input is "Tecnologías Nvoa S.A. de C.V." and the client is "Tecnologías Nova S.A. de C.V."
+- **WHEN** the input is "Tecnologías Lnice S.A. de C.V." and the client is "Tecnologías Lince S.A. de C.V."
 - **THEN** the client is matched by fuzzy match
 
 #### Scenario: Different word is not a typo
@@ -33,16 +33,16 @@ Damerau-Levenshtein edit on words of 4+ letters).
 - **THEN** the result is NOT_FOUND
 
 #### Scenario: Truncated portfolio spelling
-- **WHEN** "Bajío S.A. de C.V." is a recorded spelling of both Tecnologías Bajío and Soluciones Bajío
-- **AND** the input is "Soluciones Bajío S.A. de C.V."
-- **THEN** Tecnologías Bajío is not a candidate
+- **WHEN** "Arcoíris S.A. de C.V." is a recorded spelling of both Tecnologías Arcoíris and Soluciones Arcoíris
+- **AND** the input is "Soluciones Arcoíris S.A. de C.V."
+- **THEN** Tecnologías Arcoíris is not a candidate
 
 ### Requirement: Legal form separates entities
 The system SHALL penalise candidates whose legal-form family differs from the query's and SHALL
 treat a different "de C.V." suffix within the same family as a weak signal only.
 
 #### Scenario: Same core, different family
-- **WHEN** the input is "Tecnologías Bajío S.C." and S.C. and S.A. de C.V. clients exist
+- **WHEN** the input is "Tecnologías Arcoíris S.C." and S.C. and S.A. de C.V. clients exist
 - **THEN** the S.C. client is RESOLVED and the S.A. ones are listed with `legal_form_match = false`
 
 ### Requirement: Honest handling of homonyms

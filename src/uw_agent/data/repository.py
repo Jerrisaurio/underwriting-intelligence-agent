@@ -49,7 +49,7 @@ class DataRepository:
 
     def watchlist_for(self, client_id: str) -> pd.DataFrame:
         """Watchlist rows linked by ClientId only. Name-based matching belongs to the
-        watchlist tool, because 7 watchlist ClientIds (``FAMS…``) do not exist in the
+        watchlist tool, because some watchlist ClientIds do not exist in the
         portfolio and can only be linked by name."""
         return self._take(self.watchlist, self._watch_rows, client_id)
 
