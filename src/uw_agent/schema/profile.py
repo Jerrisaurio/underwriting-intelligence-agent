@@ -51,6 +51,9 @@ class ConflictType(StrEnum):
     INDUSTRY_MISSING = "INDUSTRY_MISSING"
     INDUSTRY_NAME_MISMATCH = "INDUSTRY_NAME_MISMATCH"
     DATA_ANOMALY = "DATA_ANOMALY"
+    WATCHLIST_STATUS_VS_NEWS = "WATCHLIST_STATUS_VS_NEWS"
+    INDUSTRY_WEB_MISMATCH = "INDUSTRY_WEB_MISMATCH"
+    ADVERSE_MEDIA_NOT_IN_WATCHLIST = "ADVERSE_MEDIA_NOT_IN_WATCHLIST"
 
 
 class ConfidenceLevel(StrEnum):
@@ -173,22 +176,49 @@ class RelatedEntity(BaseModel):
     note: str | None = None
 
 
-class PublicFinding(BaseModel):
-    """Reserved for the web-research change."""
+class ResearchStatus(StrEnum):
+    DONE = "done"
+    SKIPPED = "skipped"  # depth T0 (short-circuit, ambiguous, invalid)
+    UNAVAILABLE = "unavailable"  # no API key / model configured
+    FAILED = "failed"  # provider error after retries; internal profile kept
 
-    id: str
-    claim: str
-    url: str
+
+class PublicFinding(BaseModel):
+    id: str = Field(description="Evidence id, e.g. 'web:1'")
+    claim: str = Field(description="What the source says, in Spanish")
+    url: str = Field(description="Verified against the sources the search tool returned")
+    source_title: str | None = None
     published_date: date | None = None
-    category: str
-    stance: str
+    risk_category: str = Field(
+        description="identity | sanction | fraud | litigation | credit | payment | operations | other"
+    )
+    stance: str = Field(description="negative | neutral | positive")
+    entity_match: str = Field(description="confirmed | uncertain (different_company is dropped)")
+
+
+class PublicIdentity(BaseModel):
+    found_publicly: bool
+    description: str | None = None
+    industry: str | None = Field(
+        default=None, description="Chosen from the portfolio's industry list, or null"
+    )
+    state: str | None = None
 
 
 class WebResearch(BaseModel):
-    status: str = "not_run"
+    status: ResearchStatus = ResearchStatus.SKIPPED
     reason: str | None = None
     depth: str = "T0"
+    depth_reasons: list[str] = Field(default_factory=list)
+    provider: str | None = None
+    model: str | None = None
+    identity: PublicIdentity | None = None
     findings: list[PublicFinding] = Field(default_factory=list)
+    dropped_unverified: int = Field(
+        default=0, description="Findings whose URL was not a returned source"
+    )
+    dropped_other_entity: int = Field(default=0, description="Findings about a different company")
+    cache_hit: bool = False
 
 
 class Conflict(BaseModel):
@@ -242,7 +272,13 @@ class Trace(BaseModel):
     steps: list[TraceStep] = Field(default_factory=list)
     short_circuit: str | None = None
     llm_calls: int = 0
-    cost_usd: float = 0.0
+    web_search_calls: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost_usd: float | None = Field(
+        default=0.0, description="null when an external call was made but prices are not configured"
+    )
+    duration_ms: float = 0.0
 
 
 class UnderwritingProfile(BaseModel):
