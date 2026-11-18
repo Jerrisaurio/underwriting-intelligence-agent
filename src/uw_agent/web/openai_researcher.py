@@ -3,6 +3,7 @@
 One structured call per lookup:
 - ``tools=[web_search]`` with ``max_tool_calls`` = depth budget bounds the cost.
 - ``text_format`` = ``LLMResearch`` (strict JSON schema) so the output is machine-checked.
+- ``store=False``: the provider does not retain the response (data minimisation).
 - ``include=["web_search_call.action.sources"]`` returns the URLs the tool actually visited;
   every finding must cite one of them (or a URL citation annotation), otherwise it is dropped.
   This is the main defence against invented sources.
@@ -108,6 +109,8 @@ class OpenAIWebResearcher:
                 ],
                 max_tool_calls=SEARCH_BUDGET[request.depth],
                 include=["web_search_call.action.sources"],
+                # Data minimisation: do not keep the request/response on the provider side.
+                store=False,
                 max_output_tokens=MAX_OUTPUT_TOKENS,
                 text_format=LLMResearch,
             )
