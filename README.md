@@ -109,7 +109,8 @@ Results and their interpretation: **[`eval/REPORT.md`](eval/REPORT.md)**. Headli
 entity resolution 99.0% accurate with **0% confident wrong answers**; **100% watchlist recall**
 (188/188 entries) and 100% exact aggregates on 488 profiles; 500-company batch in 6.7 s;
 live web research with `gpt-5.4-mini`: 100% verified identity and industry on 11 real companies,
-0 fictitious companies "found", model chosen over `gpt-4o-mini` with measured data.
+0 fictitious companies "found", model chosen over `gpt-4o-mini` with measured data;
+**$0.031 per researched lookup** (≈ $1.90 per 100 companies in batch, $0 for internal-only).
 
 ## Architecture
 
@@ -195,12 +196,11 @@ tests/          unit tests on a small hand-built dataset that reproduces the har
 
 ### Known limitations
 
-- **Cost per lookup is reported as usage, not in USD.** The evaluation measures model calls,
-  tokens and web searches per lookup (~12,000 input / ~860 output tokens and ~1.8 searches for a
-  researched lookup with `gpt-5.4-mini`; $0 for short-circuited, ambiguous, cached or internal-only
-  lookups), but no dollar figure is stated because provider prices were not configured and are
-  never hard-coded. Setting the `UW_PRICE_*` variables makes every profile and batch summary
-  report USD (`eval/REPORT.md` §5).
+- **Cost figures depend on list prices.** A researched lookup costs ≈ $0.031 with `gpt-5.4-mini`
+  (≈ $1.90 per 100 companies in batch; $0 for short-circuited, ambiguous, cached or internal-only
+  lookups), computed from measured usage and OpenAI list prices of 2026-11-18. Prices are never
+  hard-coded: they come from the `UW_PRICE_*` variables and must be updated when they change
+  (`eval/REPORT.md` §5).
 - **Web research varies between runs** (search results differ): with `gpt-5.4-mini`, 3 of 13
   companies got a different action in two runs. The cache keeps repeated lookups consistent and web
   evidence can only escalate to a human.

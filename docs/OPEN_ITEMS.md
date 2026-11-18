@@ -21,10 +21,9 @@ documented as a known limitation in the README) before submission.
 
 ## Known limitations at submission
 
-- [ ] **Cost per lookup in USD.** Usage per lookup is measured (`eval/REPORT.md` §5) but no dollar
-      figure is reported: provider prices are not configured and are never hard-coded. To close:
-      set `UW_PRICE_INPUT_PER_MTOK`, `UW_PRICE_OUTPUT_PER_MTOK` and `UW_PRICE_PER_WEB_SEARCH` for the
-      chosen model and rerun `uv run python eval/run_web_eval.py --runs 2`.
+- [x] **Cost per lookup in USD.** *(Done: $0.031 per researched lookup with `gpt-5.4-mini` at list
+      prices of 2026-11-18, ≈ $1.90 per 100 companies in batch; see `eval/REPORT.md` §5. Prices
+      stay in `.env`, never in code.)*
 
 ## Deferred to the tools/profile phase
 

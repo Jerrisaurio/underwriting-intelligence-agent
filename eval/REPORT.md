@@ -165,29 +165,38 @@ investigation), contradicted none, and showed nothing for 5. One of those 5 is a
 short-circuits the web step by design): no public source supports it. Absence of evidence does
 not refute a flag, but this is the kind of planted conflict a compliance officer must verify.
 
-**Cost per lookup: reported as measured usage, not in USD (limitation).** The brief asks for
-cost per lookup. This submission measures the usage that determines it, but does **not** state a
-dollar figure: provider prices were not configured, and the agent deliberately never hard-codes or
-guesses prices (they change over time and can differ by account or contract).
-
-Measured usage per lookup (`gpt-5.4-mini`, 2 runs × 13 companies):
-
-| Lookup type | Model calls | Input tokens | Output tokens | Web searches | Cost |
-|---|---:|---:|---:|---:|---|
-| Researched (T1 / T2) | 1 | ~12,000 | ~860 | ~1.8 (max 2 / 5) | usage × prices |
-| Short-circuited (R1), ambiguous, invalid | 0 | 0 | 0 | 0 | $0 |
-| Cache hit (same company within 7 days) | 0 | 0 | 0 | 0 | $0 |
-| Internal-only (no key configured) | 0 | 0 | 0 | 0 | $0 |
-
-To obtain USD, set the three prices of the chosen model in `.env` (`UW_PRICE_INPUT_PER_MTOK`,
-`UW_PRICE_OUTPUT_PER_MTOK`, `UW_PRICE_PER_WEB_SEARCH`, the latter per call) and rerun
-`eval/run_web_eval.py` or any batch: every profile (`trace.cost_usd`) and the batch summary
-(`total_cost_usd`, `cost_per_lookup_usd`) then report dollars, computed as:
+**Cost per lookup (USD).** Computed from the usage measured in the live runs above and OpenAI list
+prices for `gpt-5.4-mini` **as of 2026-11-18**: input $0.75 / 1M tokens, output $4.50 / 1M tokens,
+`web_search` tool $10.00 / 1k calls ($0.01 per call; search content tokens are billed at model
+rates and are already included in the measured `input_tokens`). Prices are configuration, never
+code: they live in `.env` and change over time or by contract.
 
 ```
 cost = input_tokens/1e6 · UW_PRICE_INPUT_PER_MTOK + output_tokens/1e6 · UW_PRICE_OUTPUT_PER_MTOK
      + web_search_calls · UW_PRICE_PER_WEB_SEARCH
 ```
+
+Measured per lookup (`gpt-5.4-mini`, 2 runs × 13 companies, 24 researched lookups):
+
+| Lookup type | n | Input tokens | Output tokens | Web searches | Cost per lookup |
+|---|---:|---:|---:|---:|---:|
+| T1 (identity check) | 4 | 9,195 | 465 | 1.0 (max 2) | **$0.019** |
+| T2 (adverse media) | 20 | 12,615 | 943 | 1.95 (max 5) | **$0.033** (max seen $0.049) |
+| All researched | 24 | 12,045 | 863 | 1.79 | **$0.031** (range $0.018–$0.049) |
+| Short-circuited (R1), ambiguous, invalid | – | 0 | 0 | 0 | $0 |
+| Cache hit (same company within 7 days) | – | 0 | 0 | 0 | $0 |
+| Internal-only (no key configured) | – | 0 | 0 | 0 | $0 |
+
+Split of the average researched lookup: tokens $0.013 (42%), web searches $0.018 (58%), so the
+search budget per depth is the main cost lever. The whole 26-lookup live evaluation cost ≈ $0.74.
+
+**Batch projection.** With the depth mix measured on 400 random clients (§6: 9% T0, 79% T1,
+12% T2) and the per-depth costs above, a batch costs about **$0.019 per company**, i.e.
+**≈ $1.90 per 100 companies** and **≈ $9.50 per 500**, before cache hits. This is an upper
+estimate: lookups that end in NEEDS_CLARIFICATION or a short-circuit make no web call.
+
+With the prices set in `.env`, every profile (`trace.cost_usd`) and every batch summary
+(`total_cost_usd`, `cost_per_lookup_usd`) report dollars directly.
 
 ## 6. Depth calibration (web research budget)
 
