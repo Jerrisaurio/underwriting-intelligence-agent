@@ -96,6 +96,11 @@ REASONING: dict[ConflictType, tuple[str, str, str]] = {
         "Puede existir un riesgo no capturado por la watchlist.",
         "Validar la fuente y, si se confirma, registrar la bandera.",
     ),
+    ConflictType.ACTIVE_FLAG_VS_NEWS: (
+        "La watchlist es la fuente interna de cumplimiento y la bandera sigue activa; la fuente pública es menos autoritativa.",
+        "La bandera podría estar desactualizada, o la noticia ser incompleta; la bandera se mantiene para la decisión.",
+        "Confirmar con Cumplimiento si el caso ya se resolvió y actualizar la watchlist.",
+    ),
     ConflictType.COVERAGE_VS_WEB_INDUSTRY: (
         "La cobertura interna es autoritativa sobre lo contratado, pero no sobre el giro; la web describe el giro.",
         "La cobertura podría no corresponder a la actividad real del cliente.",
@@ -267,6 +272,24 @@ def _web_conflicts(
                     f'"{f.claim}"',
                     [*flag.evidence, f.id],
                 )
+    # Active internal flag, public evidence of resolution (the mirror image of the case above).
+    if web is not None and web.status is ResearchStatus.DONE:
+        for flag in flags:
+            if flag.link is not WatchlistLink.CONFIRMED or not flag.is_active:
+                continue
+            for f in web.findings:
+                if (
+                    f.entity_match == "confirmed"
+                    and f.stance in ("positive", "neutral")
+                    and WEB_CATEGORY_TO_FLAG.get(f.risk_category) == flag.flag_type
+                ):
+                    b.add(
+                        ConflictType.ACTIVE_FLAG_VS_NEWS,
+                        Severity.MEDIUM,
+                        f"La entrada {flag.watchlist_id} ({flag.flag_type}) sigue activa, pero una "
+                        f'fuente pública indica: "{f.claim}"',
+                        [*flag.evidence, f.id],
+                    )
     for f in unflagged_adverse(flags, web):
         b.add(
             ConflictType.ADVERSE_MEDIA_NOT_IN_WATCHLIST,
@@ -277,7 +300,8 @@ def _web_conflicts(
         )
     web_industry = web.identity.industry if web is not None and web.identity is not None else None
     dominant = dominant_specific_coverage(relationship)
-    if identity is not None and web_industry and dominant:
+    verified = web is not None and web.identity_verified
+    if identity is not None and web_industry and dominant and verified:
         coverage, share = dominant
         if web_industry not in COVERAGE_INDUSTRIES[coverage]:
             b.add(
@@ -293,6 +317,7 @@ def _web_conflicts(
         identity is not None
         and identity.industry
         and identity.industry_source == "portfolio"
+        and verified
         and web is not None
         and web.identity is not None
         and web.identity.industry
