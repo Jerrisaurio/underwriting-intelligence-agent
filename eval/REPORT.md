@@ -145,6 +145,21 @@ with at most 1 model call and 2 (T1) or 5 (T2) searches per company, 0 for short
 ambiguous lookups, and 0 for cache hits. Prices are configuration, never guessed: unpriced runs
 report token counts and `cost_usd: null`.
 
+## 6. Depth calibration (web research budget)
+
+Depth chosen on 400 random clients (with state), with a stub researcher so only the policy is
+measured:
+
+| Policy | T0 | T1 | T2 | Max searches per lookup (avg) |
+|---|---:|---:|---:|---:|
+| Before audit (industry issues → T2) | 37 | 199 | 164 | 3.05 |
+| **After audit** (industry issues → T1) | 37 | **314** | **49** | **2.18** |
+
+Before the change, 79% of T2 lookups were triggered only by a missing or name-inconsistent
+industry, a data-quality gap that the identity check (T1) already answers. T2 is now reserved
+for risk signals (watchlist entries, top-decile sum insured, credible loss ratio > 80%, disputed
+claims), cutting the search budget by 29%.
+
 ## Reproduce
 
 ```bash

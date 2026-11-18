@@ -45,6 +45,11 @@ Optional configuration (`.env`, nothing is hardcoded):
 
 ## Usage
 
+> Company names in this README are **fictitious** (the repository never includes data from the
+> source files). To try real lookups, pick names from your copy of the data, e.g.
+> `uv run python -c "import pandas as pd; print(pd.read_csv('data/portfolio_mexico.csv', encoding='utf-8-sig').client_name.drop_duplicates().sample(10, random_state=1).to_string(index=False))"`.
+> Many names are shared by several clients: add `--state` to disambiguate.
+
 ```bash
 uv run uw-agent profile "Petrolera del Golfo"                 # one company, JSON to stdout
 uv run uw-agent profile "Grupo Quimera S.A." --state Jalisco     # disambiguate homonyms
@@ -185,6 +190,22 @@ tests/          unit tests on a small hand-built dataset that reproduces the har
 4. Earned-premium loss ratio, claim-severity trends and portfolio benchmarks by coverage.
 5. Expose the pipeline as an API (the modular monolith keeps that one module away) and add
    structured logging/metrics export for production monitoring.
+
+## Security
+
+- **Secrets:** only from the environment / a local `.env` (git-ignored); none in code, history or CI.
+- **Data minimisation:** the web provider receives only company name, state and depth, with
+  `store=false`; no premiums, claims or watchlist content leave the system.
+- **Untrusted web content:** the model only classifies findings (strict JSON schema); every URL must
+  be one the search tool returned; conflicts, confidence and actions are computed by code, and web
+  evidence can never produce DECLINE. Consumers rendering `claim` / `description` in HTML must escape
+  them (they are third-party text).
+- **Bounded cost / availability:** per-lookup search budget, output-token cap, request timeout and
+  SDK retries; batch failures are isolated per company.
+- **Local storage:** the cache holds public web findings only (`.cache/`, git-ignored); SQLite access
+  is parameterised. Batch outputs contain internal data and are written only where the user asks.
+- **Supply chain:** dependencies locked (`uv.lock`), `pip-audit` reports no known vulnerabilities;
+  CI runs with read-only repository permissions and no secrets.
 
 ## Data handling
 
