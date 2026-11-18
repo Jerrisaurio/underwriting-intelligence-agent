@@ -118,6 +118,23 @@ def repo() -> DataRepository:
     rows += _policies(
         "BITAL", ["BITAL SA"], "Ciudad de México", 2, industry="Servicios Financieros"
     )
+    # Coverage-implied industry: agricultural coverage vs. a generic fleet coverage.
+    rows += _policies(
+        "AGRO",
+        ["Agroindustrias Sol S.A."],
+        "Sinaloa",
+        3,
+        industry="Agricultura",
+        coverage="Agrícola",
+    )
+    rows += _policies(
+        "FLEET",
+        ["Servicios Flota S.C."],
+        "Sinaloa",
+        3,
+        industry="Servicios Financieros",
+        coverage="Flotilla Vehicular",
+    )
 
     claims = [
         # LOSS: 6 policies x 1000 premium; 7000 incurred -> LR 1.17, credible.

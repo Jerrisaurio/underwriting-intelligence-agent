@@ -82,6 +82,7 @@ def test_findings_must_cite_returned_sources():
     call = client.calls[0]
     assert call["max_tool_calls"] == 5  # T2 budget
     assert call["include"] == ["web_search_call.action.sources"]
+    assert call["store"] is False  # the provider must not retain the response
     # Data governance: only name, state, depth and the industry list are sent.
     assert "Constructora Morelos" in call["input"] and "premium" not in call["input"].lower()
 
@@ -211,3 +212,95 @@ def test_web_failure_keeps_internal_profile(repo):
     assert p.public_information.status is ResearchStatus.FAILED
     assert p.claims_performance is not None
     assert any("Sin información pública" in g for g in p.data_gaps)
+
+
+# ---------------------------------------------------------------- audit-fixes
+
+
+def _types(profile):
+    return {c.type for c in profile.conflicts}
+
+
+def test_every_conflict_is_reasoned(repo):
+    p = pipeline_with(
+        repo, response([finding("https://a.mx/1")], ["https://a.mx/1"], industry="Minería")
+    ).build("Constructora Morelos S.A. de C.V.", as_of=AS_OF)
+    assert p.conflicts
+    for c in p.conflicts:
+        assert all(k in c.reasoning for k in ("Autoridad:", "Implicación:", "Verificar:"))
+
+
+def test_coverage_vs_web_industry(repo):
+    p = pipeline_with(
+        repo,
+        response([finding("https://a.mx/1")], ["https://a.mx/1"], industry="Servicios Financieros"),
+    ).build("Agroindustrias Sol S.A.", as_of=AS_OF)
+    conflict = next(c for c in p.conflicts if c.type is ConflictType.COVERAGE_VS_WEB_INDUSTRY)
+    assert "Agrícola" in conflict.description and "web:1" in conflict.sources
+
+
+def test_generic_coverage_implies_no_industry(repo):
+    p = pipeline_with(
+        repo, response([finding("https://a.mx/1")], ["https://a.mx/1"], industry="Minería")
+    ).build("Servicios Flota S.C.", as_of=AS_OF)
+    assert ConflictType.COVERAGE_VS_WEB_INDUSTRY not in _types(p)
+
+
+def test_no_web_industry_no_coverage_conflict(repo):
+    p = pipeline_with(repo, response([], [], industry=None)).build(
+        "Agroindustrias Sol S.A.", as_of=AS_OF
+    )
+    assert ConflictType.COVERAGE_VS_WEB_INDUSTRY not in _types(p)
+
+
+def test_web_fills_missing_industry(repo):
+    p = pipeline_with(
+        repo, response([finding("https://a.mx/1")], ["https://a.mx/1"], industry="Minería")
+    ).build("Grupo Quimera S.A.", as_of=AS_OF, state="Jalisco")
+    assert p.company_identity.industry == "Minería"
+    assert p.company_identity.industry_source == "web"
+    assert ConflictType.INDUSTRY_MISSING not in _types(p)
+    assert "web:1" in p.company_identity.evidence
+
+
+def test_web_never_overrides_recorded_industry(repo):
+    p = pipeline_with(
+        repo, response([finding("https://a.mx/1")], ["https://a.mx/1"], industry="Minería")
+    ).build("Constructora Morelos S.A. de C.V.", as_of=AS_OF)
+    assert p.company_identity.industry == "Construcción"
+    assert p.company_identity.industry_source == "portfolio"
+    assert ConflictType.INDUSTRY_WEB_MISMATCH in _types(p)
+
+
+def test_industry_only_signal_stays_at_t1(repo):
+    # Grupo Quimera (Jalisco): no flags, no claims, no recorded industry.
+    pipe = pipeline_with(repo, response([], []))
+    p = pipe.build("Grupo Quimera S.A.", as_of=AS_OF, state="Jalisco")
+    assert p.public_information.depth == "T1"
+    assert "Industria" in p.public_information.depth_reasons[0]
+    assert pipe.researcher._client.calls[0]["max_tool_calls"] == 2
+
+
+def test_disputed_claims_deepen_only_by_share():
+    from uw_agent.schema.profile import ClaimsPerformance, Credibility, ProfileStatus
+    from uw_agent.web import choose_depth
+
+    def claims(disputed, total):
+        return ClaimsPerformance(
+            n_claims=total,
+            n_excluded_after_as_of=0,
+            incurred_mxn=0,
+            reserved_registered_mxn=0,
+            by_status={"en_disputa": disputed},
+            oldest_open_claim_date=None,
+            oldest_open_claim_age_days=None,
+            client_loss_ratio=0.1,
+            credibility=Credibility.CREDIBLE,
+            by_year=[],
+            top_claim_types={},
+            evidence=[],
+        )
+
+    args = (ProfileStatus.COMPLETE, False, [], None, None)
+    assert choose_depth(*args, claims(103, 821), [], 1e18)[0] == "T1"  # 12.5%: portfolio average
+    assert choose_depth(*args, claims(2, 3), [], 1e18)[0] == "T2"
