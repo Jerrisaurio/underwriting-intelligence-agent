@@ -33,7 +33,7 @@ from uw_agent.web.models import (
 
 log = logging.getLogger(__name__)
 
-PROMPT_VERSION = "2026-11-17.1"
+PROMPT_VERSION = "2026-11-18.1"  # bump invalidates cached research
 MAX_OUTPUT_TOKENS = 4000
 
 INSTRUCTIONS = """\
@@ -61,6 +61,14 @@ DEPTH_FOCUS = {
     "T2": "Confirm identity, then look specifically for sanctions, fraud investigations, "
     "litigation, credit-rating changes and payment defaults in the last 3 years.",
 }
+
+
+# Live runs: at T2 the model used 1 of 5 allowed searches. Naming the categories makes it use the
+# budget it is given (still capped by max_tool_calls).
+T2_CATEGORY_SEARCHES = (
+    "Run one separate search for each risk category: sanctions, fraud investigations, "
+    "litigation, credit rating changes, payment defaults.\n"
+)
 
 
 def _norm_url(url: str) -> str:
@@ -155,11 +163,15 @@ class OpenAIWebResearcher:
                 )
             )
         ident = parsed.identity
-        industry = ident.industry if ident.industry in request.industries else None
+        # The model's identity summary is a claim. It counts only when at least one kept finding
+        # (URL verified above) confirms this very company; otherwise the "found" and the industry
+        # are discarded. Live runs showed the model asserting fictitious companies exist.
+        verified = any(f.entity_match == "confirmed" for f in findings)
+        industry = ident.industry if verified and ident.industry in request.industries else None
         return ResearchOutcome(
             status=ResearchStatus.DONE,
             identity=PublicIdentity(
-                found_publicly=ident.found_publicly,
+                found_publicly=ident.found_publicly and verified,
                 description=ident.description,
                 industry=industry,
                 state=ident.state,
@@ -177,7 +189,8 @@ class OpenAIWebResearcher:
             f"Company: {req.name}\n"
             f"Mexican state: {req.state or 'unknown'}\n"
             f"Depth: {req.depth}. {DEPTH_FOCUS[req.depth]}\n"
-            f"Industry list: {', '.join(req.industries)}"
+            + (T2_CATEGORY_SEARCHES if req.depth == "T2" else "")
+            + f"Industry list: {', '.join(req.industries)}"
         )
 
     @staticmethod

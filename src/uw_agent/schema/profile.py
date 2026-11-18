@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from uw_agent.resolution.models import ResolutionResult
 
-SCHEMA_VERSION = "1.1"
+SCHEMA_VERSION = "1.2"
 
 
 class ProfileStatus(StrEnum):
@@ -55,6 +55,7 @@ class ConflictType(StrEnum):
     INDUSTRY_WEB_MISMATCH = "INDUSTRY_WEB_MISMATCH"
     ADVERSE_MEDIA_NOT_IN_WATCHLIST = "ADVERSE_MEDIA_NOT_IN_WATCHLIST"
     COVERAGE_VS_WEB_INDUSTRY = "COVERAGE_VS_WEB_INDUSTRY"
+    ACTIVE_FLAG_VS_NEWS = "ACTIVE_FLAG_VS_NEWS"
 
 
 class ConfidenceLevel(StrEnum):
@@ -225,6 +226,10 @@ class WebResearch(BaseModel):
         default=0, description="Findings whose URL was not a returned source"
     )
     dropped_other_entity: int = Field(default=0, description="Findings about a different company")
+    identity_verified: bool = Field(
+        default=False,
+        description="True only when a kept finding about this company is confirmed with a verified URL",
+    )
     cache_hit: bool = False
 
 

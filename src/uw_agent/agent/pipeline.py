@@ -271,6 +271,7 @@ class ProfilePipeline:
             dropped_unverified=outcome.dropped_unverified,
             dropped_other_entity=outcome.dropped_other_entity,
             cache_hit=outcome.cache_hit,
+            identity_verified=any(f.entity_match == "confirmed" for f in outcome.findings),
             **base,
         )
         return web, outcome.usage
@@ -308,7 +309,12 @@ class ProfilePipeline:
     @staticmethod
     def _fill_industry_from_web(identity, web):
         """The web fills a missing industry (with its source), never overrides a recorded one."""
-        if identity is None or identity.industry or not (web.identity and web.identity.industry):
+        if (
+            identity is None
+            or identity.industry
+            or not web.identity_verified
+            or not (web.identity and web.identity.industry)
+        ):
             return identity
         return identity.model_copy(
             update={
