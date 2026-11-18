@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.env
+.cache/
+# Raw eval runs are regenerated; the curated report lives in eval/REPORT.md
+eval/results/*.json
+
+# Source data is provided separately (see data/README.md); never commit it.
+data/*.csv
+# Challenge statement provided by the company; not redistributed.
+docs/chubb_ai_engineer_technical_challenge.pdf
+# Eval datasets are derived from the source data; regenerate with eval/generate_resolution_cases.py
+eval/datasets/*.jsonl

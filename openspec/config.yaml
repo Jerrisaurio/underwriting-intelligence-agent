@@ -1,0 +1,23 @@
+schema: spec-driven
+
+context: |
+  Product: CLI agent that builds an underwriting intelligence profile for a company from
+  three internal CSV databases (portfolio, claims, watchlist) of a Mexican P&C portfolio,
+  then from public web sources.
+  Tech stack: Python 3.12, uv, pandas, rapidfuzz, pydantic v2, typer, pytest, ruff.
+  Architecture: modular monolith (src/uw_agent): data/ (database layer), resolution/,
+  tools/, agent/, schema/, infra/; eval/ holds evaluation datasets and runners.
+  Domain rules that must not be broken:
+    - ClientId is the entity key; never aggregate across ClientIds.
+    - Same name -> several ClientIds is normal (homonyms); never guess silently.
+    - Confidence and recommended action are rule-based, never produced by an LLM.
+    - Internal data is more authoritative than web data; conflicts are surfaced, not resolved silently.
+    - Source data (CSV) and data derived from it are never committed.
+  Conventions: Conventional Commits in Spanish, no AI attribution lines; code/comments in English;
+  agent-generated user-facing text in Spanish.
+
+rules:
+  specs:
+    - Every requirement must have at least one scenario that maps to a test or an eval case.
+  tasks:
+    - Each task group ends with tests passing and ruff clean.
