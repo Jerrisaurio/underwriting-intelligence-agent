@@ -304,3 +304,102 @@ def test_disputed_claims_deepen_only_by_share():
     args = (ProfileStatus.COMPLETE, False, [], None, None)
     assert choose_depth(*args, claims(103, 821), [], 1e18)[0] == "T1"  # 12.5%: portfolio average
     assert choose_depth(*args, claims(2, 3), [], 1e18)[0] == "T2"
+
+
+# ---------------------------------------------------------------- web-live-fixes
+
+
+def test_unsupported_identity_is_not_verified():
+    # Model claims the company exists and names an industry, but no finding supports it.
+    client = fake(response([], [], industry="Construcción", found=True))
+    out = OpenAIWebResearcher("m", client=client).research(REQ)
+    assert out.identity.found_publicly is False
+    assert out.identity.industry is None
+
+
+def test_supported_identity_is_verified():
+    client = fake(
+        response([finding("https://a.mx/1")], ["https://a.mx/1"], industry="Construcción")
+    )
+    out = OpenAIWebResearcher("m", client=client).research(REQ)
+    assert out.identity.found_publicly is True and out.identity.industry == "Construcción"
+
+
+def test_uncertain_findings_do_not_verify_identity(repo):
+    p = pipeline_with(
+        repo,
+        response(
+            [finding("https://a.mx/1", match="uncertain")], ["https://a.mx/1"], industry="Minería"
+        ),
+    ).build("Grupo Quimera S.A.", as_of=AS_OF, state="Jalisco")
+    assert p.public_information.identity_verified is False
+    assert p.company_identity.industry is None  # not filled from an unverified identity
+    assert not {ConflictType.INDUSTRY_WEB_MISMATCH, ConflictType.COVERAGE_VS_WEB_INDUSTRY} & _types(
+        p
+    )
+
+
+def test_active_flag_vs_public_resolution(repo):
+    # PDG has an active confirmed critical sanction (W1). In the pipeline R1 short-circuits the web
+    # step, so the conflict detector is exercised directly with a public "resolution" finding.
+    from uw_agent.agent.conflicts import detect_conflicts
+    from uw_agent.resolution import EntityResolver
+    from uw_agent.schema.profile import PublicFinding, ResearchStatus, WebResearch
+    from uw_agent.tools import WatchlistScreener
+
+    resolver = EntityResolver.from_repository(repo, alias_file=None)
+    res = resolver.resolve("PDG")
+    flags = WatchlistScreener(repo, resolver).screen(res)
+    news = PublicFinding(
+        id="web:1",
+        claim="La sanción fue levantada.",
+        url="https://n.mx/1",
+        risk_category="sanction",
+        stance="positive",
+        entity_match="confirmed",
+    )
+    web = WebResearch(status=ResearchStatus.DONE, findings=[news], identity_verified=True)
+    conflicts = detect_conflicts(res, None, flags, [], web)
+    c = next(c for c in conflicts if c.type is ConflictType.ACTIVE_FLAG_VS_NEWS)
+    assert set(c.sources) == {"watchlist:W1", "web:1"}
+    assert "Verificar:" in c.reasoning
+
+
+def test_active_flag_rule_still_fires_despite_news(repo):
+    from uw_agent.agent.rules import evaluate_rules
+    from uw_agent.resolution import EntityResolver
+    from uw_agent.schema.profile import (
+        ConfidenceLevel,
+        ProfileStatus,
+        PublicFinding,
+        ResearchStatus,
+        WebResearch,
+    )
+    from uw_agent.tools import WatchlistScreener
+
+    resolver = EntityResolver.from_repository(repo, alias_file=None)
+    flags = WatchlistScreener(repo, resolver).screen(resolver.resolve("PDG"))
+    news = PublicFinding(
+        id="web:1",
+        claim="Sanción levantada.",
+        url="https://n.mx/1",
+        risk_category="sanction",
+        stance="positive",
+        entity_match="confirmed",
+    )
+    web = WebResearch(status=ResearchStatus.DONE, findings=[news], identity_verified=True)
+    action, rules = evaluate_rules(
+        ProfileStatus.COMPLETE, flags, None, [], ConfidenceLevel.MEDIUM, web
+    )
+    assert action is RecommendedAction.DECLINE and "R1" in {r.rule_id for r in rules}
+
+
+def test_t2_request_names_the_five_categories():
+    client = fake(response([], []))
+    OpenAIWebResearcher("m", client=client).research(REQ)  # REQ is T2
+    text = client.calls[0]["input"]
+    for word in ("sanctions", "fraud", "litigation", "credit", "payment"):
+        assert word in text
+    t1 = ResearchRequest("X", None, "T1", ("Construcción",))
+    OpenAIWebResearcher("m", client=client).research(t1)
+    assert "Run one separate search" not in client.calls[1]["input"]
