@@ -22,13 +22,41 @@ web:        skipped (short-circuit: no public information would change a DECLINE
 
 ## Setup
 
-Requires [uv](https://docs.astral.sh/uv/); the Python version is pinned (`.python-version`)
-and dependencies are locked (`uv.lock`).
+Python 3.12 (pinned in `.python-version`). Dependencies are declared in `pyproject.toml` and
+locked to exact versions in `uv.lock`; `requirements.txt` / `requirements-dev.txt` are generated
+from that lock, so both options install the same versions.
+
+**Option A, [uv](https://docs.astral.sh/uv/) (recommended):**
 
 ```bash
-uv sync
-cp .env.example .env          # optional, see below
+uv sync                       # creates .venv with runtime + dev dependencies
+uv run uw-agent --help        # prefix commands with `uv run`
 ```
+
+**Option B, pip:**
+
+```bash
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt   # dev file only needed for tests/lint
+pip install -e . --no-deps                                 # installs the `uw-agent` command
+uw-agent --help               # in this README, drop the `uv run` prefix
+```
+
+Then, optionally: `cp .env.example .env` (see below).
+
+| Dependency | Why |
+|---|---|
+| `pandas` | Loading and aggregating the three CSV databases |
+| `rapidfuzz` | Fuzzy name matching (string similarity, Damerau-Levenshtein) |
+| `pydantic` | Output schema, validation and JSON Schema export |
+| `pyyaml` | Curated alias and related-entities tables |
+| `typer` | Command-line interface |
+| `openai` | Web research (Responses API + web search); only used when configured |
+| `pytest`, `ruff` | Tests and lint (development only) |
+
+After changing dependencies, regenerate the requirements files with
+`uv export --no-dev --no-hashes --no-emit-project -o requirements.txt` (and `--only-dev` for
+`requirements-dev.txt`).
 
 Place the source files in `data/` (they are not versioned, see `data/README.md`):
 `portfolio_mexico.csv`, `claims.csv`, `watchlist.csv`.
@@ -39,7 +67,7 @@ Optional configuration (`.env`, nothing is hardcoded):
 |---|---|
 | `UW_DATA_DIR` | Data directory (default `data`). |
 | `UW_AS_OF_DATE` | Reference date for "active policy" and for excluding later data (default today). |
-| `OPENAI_API_KEY`, `UW_OPENAI_MODEL` | Enable web research. Without both, the agent runs on internal data only and says so in each profile. |
+| `OPENAI_API_KEY`, `UW_OPENAI_MODEL` | Enable web research (recommended model: `gpt-5.4-mini`, chosen with measured data in `eval/REPORT.md` §5). Without both, the agent runs on internal data only and says so in each profile. |
 | `UW_PRICE_INPUT_PER_MTOK`, `UW_PRICE_OUTPUT_PER_MTOK`, `UW_PRICE_PER_WEB_SEARCH` | Prices for cost reporting. Unset → token counts reported, cost `null` (never guessed). |
 | `UW_CACHE_DIR`, `UW_CACHE_TTL_DAYS` | Web-research cache (default `.cache`, 7 days). |
 
@@ -70,7 +98,7 @@ uv run uw-agent schema                                        # JSON Schema of t
 ## Tests and evaluation
 
 ```bash
-uv run pytest                                   # 101 unit tests, < 1 s, no network
+uv run pytest                                   # 115 unit tests, < 2 s, no network
 uv run python eval/generate_resolution_cases.py
 uv run python eval/run_resolution_eval.py       # entity resolution, 1,030 cases
 uv run python eval/run_profile_eval.py [--with-state]   # full profiles vs verifiable facts
@@ -79,7 +107,9 @@ uv run python eval/run_web_eval.py              # web set (needs OpenAI credenti
 
 Results and their interpretation: **[`eval/REPORT.md`](eval/REPORT.md)**. Headlines:
 entity resolution 99.0% accurate with **0% confident wrong answers**; **100% watchlist recall**
-(188/188 entries) and 100% exact aggregates on 488 profiles; 500-company batch in 6.7 s.
+(188/188 entries) and 100% exact aggregates on 488 profiles; 500-company batch in 6.7 s;
+live web research with `gpt-5.4-mini`: 100% verified identity and industry on 11 real companies,
+0 fictitious companies "found", model chosen over `gpt-4o-mini` with measured data.
 
 ## Architecture
 
@@ -165,13 +195,18 @@ tests/          unit tests on a small hand-built dataset that reproduces the har
 
 ### Known limitations
 
-- **Web research was not exercised against the live API** in this submission (no key available).
-  It is fully unit-tested with a fake client and degrades gracefully, but its real-world quality
-  (identity accuracy, source quality, cost per lookup) is unmeasured. The labelled set and runner
-  are ready (`eval/run_web_eval.py`).
+- **Cost per lookup is reported as usage, not in USD.** The evaluation measures model calls,
+  tokens and web searches per lookup (~12,000 input / ~860 output tokens and ~1.8 searches for a
+  researched lookup with `gpt-5.4-mini`; $0 for short-circuited, ambiguous, cached or internal-only
+  lookups), but no dollar figure is stated because provider prices were not configured and are
+  never hard-coded. Setting the `UW_PRICE_*` variables makes every profile and batch summary
+  report USD (`eval/REPORT.md` §5).
+- **Web research varies between runs** (search results differ): with `gpt-5.4-mini`, 3 of 13
+  companies got a different action in two runs. The cache keeps repeated lookups consistent and web
+  evidence can only escalate to a human.
 - **Aliases outside the data** ("Banco Nacional de México" for Banamex) are missed by the
   deterministic resolver (1/7 held-out aliases found).
-- **Text-only identity.** Names one letter apart ("Mexico" / "Mexica") cannot be told from typos;
+- **Text-only identity.** Names one letter apart (e.g. a fictitious "Servicios Lunar" vs "Servicios Lunas") cannot be told from typos;
   they are flagged, not resolved.
 - **Data quirks taken at face value, but surfaced:** `reserved_mxn` on closed claims is reported
   as "registered reserve", not exposure; 46 resolved watchlist entries whose notes describe ongoing
@@ -181,8 +216,8 @@ tests/          unit tests on a small hand-built dataset that reproduces the har
 
 ### With more time
 
-1. Run the web evaluation with a key; record responses as fixtures for reproducible web evals;
-   tune depth budgets on measured cost vs. findings.
+1. Record live responses as fixtures for reproducible web evals; require two independent sources
+   before an adverse web finding escalates, to reduce run-to-run variance.
 2. LLM/web fallback for out-of-data aliases (only on NOT_FOUND, cached), measured on the
    held-out alias set.
 3. Calibrate confidence against underwriter decisions (or a labelled sample) and report

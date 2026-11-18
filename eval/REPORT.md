@@ -18,7 +18,7 @@ is verifiable:
 | Are the numbers right? | Aggregates recomputed with an independent pandas implementation. |
 | Is every fact traceable? | Every evidence id in every profile checked against the source rows. |
 | Is it reliable and cheap at scale? | Error rate, latency, cost per lookup, 500-company batch. |
-| Is the public information sound? | Hand-labelled web set; **not run** in this submission (no API key available, see below). |
+| Is the public information sound? | Hand-labelled web set, live, 2 models × 2 runs (section 5). |
 
 ## 1. Entity resolution (`run_resolution_eval.py`, 1,030 cases)
 
@@ -121,29 +121,73 @@ on thin evidence, as the brief asks.
 **6.7 s wall time** including data loading, 0 errors, 3 duplicates computed once,
 latency p50 16 ms / p95 138 ms. Resume after interruption re-processes nothing already written.
 
-## 5. Web research and cost (`run_web_eval.py`)
+## 5. Web research: live runs and model choice (`run_web_eval.py`)
 
-**Not run in this submission:** no OpenAI API key was available in the development environment.
-The runner reports `not_run` and exits 0. The web layer is covered by unit tests with a fake
-OpenAI client (source verification, other-company filtering, failures, cache, conflicts, rules,
-cost accounting).
+Live runs against the OpenAI Responses API with the `web_search` tool, on the hand-labelled set
+(`eval/web_cases.yaml`: 11 real public companies with their expected industry + 2 synthetic
+controls), **2 runs per company**, cache bypassed, `as_of = 2025-09-28`.
 
-The labelled set (`eval/web_cases.yaml`) has 11 real public companies with their expected
-industry, plus 2 synthetic controls that must produce no confirmed finding. For every watchlist
-flag linked to those profiles (read from the data at run time, not stored in the file), the
-runner lists the public findings of the same risk category for human review: several
-real-company flags read as planted conflicts, and this check is what would confirm or refute them.
+| Metric | `gpt-4o-mini` | `gpt-5.4-mini` |
+|---|---:|---:|
+| Lookups (researched) | 26 (24) | 26 (24) |
+| Provider failures | 0 | 0 |
+| **Identity accuracy** (verified identity = label) | **45.8%** | **100%** |
+| **Industry accuracy** (closed list) | **38.9%** | **100%** |
+| Synthetic controls verified as real (false positives) | 0 | 0 |
+| Avg. web searches per lookup (T2 only) | 1.0 (1.0) | 1.8 (1.95) |
+| Avg. findings kept per lookup | 0.33 | 4.5 |
+| Adverse findings kept (total) | 0 | 31 |
+| Findings dropped: URL not among returned sources | 34 | 6 |
+| Findings dropped: different company | 0 | 4 |
+| Run-to-run agreement (identity, industry, action) | 92.3% | 76.9% |
+| Avg. input / output tokens | 8,174 / 282 | 12,045 / 863 |
+| Avg. latency | 3.5 s | 7.4 s |
 
-Cost per lookup is bounded by design and reported per profile once prices are configured:
+**What the live runs changed (change `web-live-fixes`).** The first live run reported 100%
+identity accuracy for `gpt-4o-mini`, but the model was asserting identities (and industries) with
+no verified finding, including "finding" a fictitious control company. Identity now counts only
+when a kept finding with a verified URL confirms the company; under that rule `gpt-4o-mini` drops
+to 46%, because most of the URLs it cites are not among the sources its search returned (34
+dropped). Its 1-search behaviour at T2 also left adverse media unexplored (0 adverse findings).
+
+**Model choice: `gpt-5.4-mini`.** It verifies every real company and its industry, finds the
+adverse media T2 exists for, and invents far fewer sources, at about 1.5× the input tokens, 3× the
+output tokens and 2× the latency of `gpt-4o-mini`. Its weakness is consistency: in 3 of 13
+companies the two runs led to different actions, because a borderline adverse finding appeared
+in one run and not the other. Rules are deterministic given the findings; the variance comes from
+search. Mitigations: the 7-day cache makes repeated lookups consistent, and web evidence can only
+escalate to a human, never decline. The model is configuration (`UW_OPENAI_MODEL`).
+
+**Watchlist review (human-review output).** For the 8 watchlist flags of real companies, public
+sources corroborated 3 (an active litigation, an active regulatory sanction and an active fraud
+investigation), contradicted none, and showed nothing for 5. One of those 5 is a critical
+"international sanctions" flag on a real company, checked with a dedicated T2 lookup (its profile
+short-circuits the web step by design): no public source supports it. Absence of evidence does
+not refute a flag, but this is the kind of planted conflict a compliance officer must verify.
+
+**Cost per lookup: reported as measured usage, not in USD (limitation).** The brief asks for
+cost per lookup. This submission measures the usage that determines it, but does **not** state a
+dollar figure: provider prices were not configured, and the agent deliberately never hard-codes or
+guesses prices (they change over time and can differ by account or contract).
+
+Measured usage per lookup (`gpt-5.4-mini`, 2 runs × 13 companies):
+
+| Lookup type | Model calls | Input tokens | Output tokens | Web searches | Cost |
+|---|---:|---:|---:|---:|---|
+| Researched (T1 / T2) | 1 | ~12,000 | ~860 | ~1.8 (max 2 / 5) | usage × prices |
+| Short-circuited (R1), ambiguous, invalid | 0 | 0 | 0 | 0 | $0 |
+| Cache hit (same company within 7 days) | 0 | 0 | 0 | 0 | $0 |
+| Internal-only (no key configured) | 0 | 0 | 0 | 0 | $0 |
+
+To obtain USD, set the three prices of the chosen model in `.env` (`UW_PRICE_INPUT_PER_MTOK`,
+`UW_PRICE_OUTPUT_PER_MTOK`, `UW_PRICE_PER_WEB_SEARCH`, the latter per call) and rerun
+`eval/run_web_eval.py` or any batch: every profile (`trace.cost_usd`) and the batch summary
+(`total_cost_usd`, `cost_per_lookup_usd`) then report dollars, computed as:
 
 ```
 cost = input_tokens/1e6 · UW_PRICE_INPUT_PER_MTOK + output_tokens/1e6 · UW_PRICE_OUTPUT_PER_MTOK
      + web_search_calls · UW_PRICE_PER_WEB_SEARCH
 ```
-
-with at most 1 model call and 2 (T1) or 5 (T2) searches per company, 0 for short-circuited or
-ambiguous lookups, and 0 for cache hits. Prices are configuration, never guessed: unpriced runs
-report token counts and `cost_usd: null`.
 
 ## 6. Depth calibration (web research budget)
 
@@ -167,5 +211,5 @@ uv run python eval/generate_resolution_cases.py
 uv run python eval/run_resolution_eval.py
 uv run python eval/run_profile_eval.py
 uv run python eval/run_profile_eval.py --with-state
-uv run python eval/run_web_eval.py            # needs OPENAI_API_KEY + UW_OPENAI_MODEL
+uv run python eval/run_web_eval.py --model gpt-5.4-mini --runs 2   # needs OPENAI_API_KEY
 ```

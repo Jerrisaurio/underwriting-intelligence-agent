@@ -1,4 +1,4 @@
-# Underwriting profile schema (v1.1)
+# Underwriting profile schema (v1.2)
 
 `uw-agent profile "<name>"` prints one `UnderwritingProfile` as JSON. The machine-readable
 JSON Schema is printed by `uw-agent schema`; the Pydantic source is
@@ -79,7 +79,8 @@ Conventions:
 | `status`, `reason` | `done` · `skipped` (depth T0) · `unavailable` (no `OPENAI_API_KEY` / `UW_OPENAI_MODEL`) · `failed` (provider error after retries; the internal profile is kept). |
 | `depth`, `depth_reasons` | `T0` none · `T1` identity check (≤ 2 searches; also when the only question is a missing or name-inconsistent industry) · `T2` adverse-media search (≤ 5 searches; only with risk signals: watchlist entry, credible loss ratio > 80%, top-decile sum insured, ≥ 2 disputed claims, no internal match), with the signals that chose it. |
 | `provider`, `model` | Implementation used (`openai`) and the configured model. |
-| `identity` | `found_publicly`, `description`, `industry` (only a value of the portfolio's industry list, else null), `state`. |
+| `identity` | `found_publicly`, `description`, `industry` (only a value of the portfolio's industry list, else null), `state`. `found_publicly` and `industry` are kept only when the identity is verified. |
+| `identity_verified` | True only when at least one kept finding about this company is `confirmed` with a URL the search tool returned. The model's own claim that a company exists is not enough (live runs showed it "finding" fictitious companies). The web fills or contradicts the industry only when this is true. |
 | `findings` | `id` (`web:n`, used as evidence id), `claim` (Spanish), `url`, `source_title`, `published_date`, `risk_category` (identity, sanction, fraud, litigation, credit, payment, operations, other), `stance` (negative / neutral / positive), `entity_match` (`confirmed` / `uncertain`). |
 | `dropped_unverified` | Findings discarded because their URL was not among the sources the search tool returned (invented or unverifiable sources). |
 | `dropped_other_entity` | Findings discarded because they described a different company with a similar name. |
@@ -107,6 +108,7 @@ conflicts, it does not settle them).
 | `DATA_ANOMALY` | low | Unreadable values or claims after `as_of_date`, excluded from metrics. |
 | `WATCHLIST_STATUS_VS_NEWS` | high | A confirmed flag is `resuelto`, but a confirmed negative web finding of the same risk category is dated after the resolution. |
 | `INDUSTRY_WEB_MISMATCH` | medium | The web industry (closed list) differs from the recorded one. |
+| `ACTIVE_FLAG_VS_NEWS` | medium | A confirmed flag is active, but a confirmed public finding of the same risk category reports a resolution (positive or neutral). The flag still applies to the rules. |
 | `COVERAGE_VS_WEB_INDUSTRY` | medium | An unambiguous coverage holds > 50% of the written premium (Agrícola → Agricultura / Alimentos y Bebidas; Ingeniería → Construcción / Inmobiliaria / Minería / Manufactura) and the web industry is not consistent with it. Generic coverages (fleet, liability, fire, cargo, miscellaneous) imply no industry. |
 | `ADVERSE_MEDIA_NOT_IN_WATCHLIST` | medium | Confirmed negative sanction / fraud / litigation / credit / payment finding with no confirmed watchlist flag of that type. |
 

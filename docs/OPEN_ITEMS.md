@@ -5,9 +5,9 @@ documented as a known limitation in the README) before submission.
 
 ## Deferred to the web-research phase
 
-- [ ] **Verify real-company watchlist entries against public sources.** *(Harness ready:
-      `eval/run_web_eval.py` lists, per linked flag, the public findings of the same category.
-      Still open: needs `OPENAI_API_KEY` + `UW_OPENAI_MODEL` to run.)* Several watchlist
+- [x] **Verify real-company watchlist entries against public sources.** *(Done with live runs:
+      3 of 8 corroborated, 0 contradicted, 5 without public evidence, including a critical
+      sanctions flag with no public support; see `eval/REPORT.md` §5.)* Several watchlist
       entries for real public companies read as questionable and look like planted conflicts. For
       each one, record whether public evidence confirms, contradicts, or says nothing. The list of
       flags is produced at run time from the data (nothing from the dataset is stored here).
@@ -18,6 +18,13 @@ documented as a known limitation in the README) before submission.
       just for that.
 - [ ] **Snapshot web responses** (cassettes) so the evaluation can be reproduced. *(Not done:
       requires live responses; unit tests use a fake client instead.)*
+
+## Known limitations at submission
+
+- [ ] **Cost per lookup in USD.** Usage per lookup is measured (`eval/REPORT.md` §5) but no dollar
+      figure is reported: provider prices are not configured and are never hard-coded. To close:
+      set `UW_PRICE_INPUT_PER_MTOK`, `UW_PRICE_OUTPUT_PER_MTOK` and `UW_PRICE_PER_WEB_SEARCH` for the
+      chosen model and rerun `uv run python eval/run_web_eval.py --runs 2`.
 
 ## Deferred to the tools/profile phase
 
