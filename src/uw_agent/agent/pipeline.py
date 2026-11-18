@@ -140,11 +140,15 @@ class ProfilePipeline:
             d.append(f"{web.status.value} {web.depth} {len(web.findings)} hallazgo(s)")
 
         with step("assessment") as d:
-            conflicts = detect_conflicts(res, identity, flags, anomalies, web)
+            identity = self._fill_industry_from_web(identity, web)
+            conflicts = detect_conflicts(
+                res, identity, flags, anomalies, web, history.relationship if history else None
+            )
             internal = internal_evidence(
                 history.relationship if history else None,
                 history.claims if history else None,
-                bool(identity and identity.industry),
+                # Internal evidence only: a web-filled industry does not count here.
+                bool(identity and identity.industry_source == "portfolio"),
                 self._history_years(history, as_of),
             )
             confidence = compute_confidence(
@@ -301,6 +305,19 @@ class ProfilePipeline:
 
     # ------------------------------------------------------------------ helpers
 
+    @staticmethod
+    def _fill_industry_from_web(identity, web):
+        """The web fills a missing industry (with its source), never overrides a recorded one."""
+        if identity is None or identity.industry or not (web.identity and web.identity.industry):
+            return identity
+        return identity.model_copy(
+            update={
+                "industry": web.identity.industry,
+                "industry_source": "web",
+                "evidence": [*identity.evidence, *[f.id for f in web.findings[:3]]],
+            }
+        )
+
     def _identity(self, client_id: str) -> CompanyIdentity:
         info = self.repo.clients.loc[client_id]
         pol = self.repo.policies_for(client_id)
@@ -311,6 +328,7 @@ class ProfilePipeline:
             state=info["state"],
             municipality=info["municipality"],
             industry=info["industry"] or None,
+            industry_source="portfolio" if info["industry"] else None,
             evidence=[f"portfolio:{p}" for p in pol["policy_id"].head(20)],
         )
 

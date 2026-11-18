@@ -14,6 +14,7 @@ from uw_agent.schema.profile import (
     ConflictType,
     LinkMethod,
     PublicFinding,
+    Relationship,
     ResearchStatus,
     RiskFlag,
     Severity,
@@ -41,11 +42,82 @@ BUSINESS_WORD_INDUSTRIES: dict[str, set[str]] = {
 }
 
 
+# How each conflict is reasoned through: (authoritative source and why, implication for
+# underwriting, what to verify). Deterministic on purpose: the reasoning must be reproducible,
+# testable and available even when no language model is configured.
+REASONING: dict[ConflictType, tuple[str, str, str]] = {
+    ConflictType.ENTITY_AMBIGUITY: (
+        "El portafolio es la fuente de identidad, pero el nombre por sí solo no distingue entre clientes homónimos.",
+        "Todo el perfil podría corresponder a otra empresa con el mismo nombre.",
+        "Confirmar estado, razón social completa o RFC con el solicitante.",
+    ),
+    ConflictType.WATCHLIST_NOTE_VS_STATUS: (
+        "Ambos datos son internos; el estatus es un campo estructurado y la nota es el texto del analista.",
+        "Una bandera marcada como resuelta podría seguir vigente.",
+        "Confirmar con Cumplimiento el estado real del caso antes de emitir.",
+    ),
+    ConflictType.FLAG_PREDATES_RELATIONSHIP: (
+        "Las fechas internas son confiables: la bandera ya existía al iniciar la relación.",
+        "Se suscribió con la bandera registrada; puede haber una excepción aprobada o un error de control.",
+        "Revisar si existe una autorización documentada para esas pólizas.",
+    ),
+    ConflictType.WATCHLIST_LINKED_BY_NAME_ONLY: (
+        "El ClientId es el vínculo autoritativo; aquí solo coincide el nombre.",
+        "La bandera podría pertenecer a otra entidad con el mismo nombre.",
+        "Verificar la identidad de la entrada de watchlist antes de aplicarla.",
+    ),
+    ConflictType.INDUSTRY_MISSING: (
+        "El portafolio es la fuente autoritativa de la industria, pero no la registra.",
+        "No se puede validar que la cobertura corresponda al giro real del cliente.",
+        "Solicitar el giro al cliente o al agente.",
+    ),
+    ConflictType.INDUSTRY_NAME_MISMATCH: (
+        "La industria registrada es el dato autoritativo; el nombre solo sugiere un giro.",
+        "Puede ser un error de captura o una empresa que cambió de giro.",
+        "Confirmar el giro actual antes de tarificar.",
+    ),
+    ConflictType.DATA_ANOMALY: (
+        "Los registros afectados se excluyeron de las métricas; el resto del perfil se mantiene.",
+        "Las cifras podrían estar incompletas.",
+        "Revisar los registros citados en la fuente.",
+    ),
+    ConflictType.WATCHLIST_STATUS_VS_NEWS: (
+        "La watchlist es la fuente interna de cumplimiento, pero la fuente pública es posterior a la resolución.",
+        "Una bandera resuelta podría estar reactivada.",
+        "Verificar con Cumplimiento antes de emitir.",
+    ),
+    ConflictType.INDUSTRY_WEB_MISMATCH: (
+        "Se conserva la industria interna (autoritativa); la web solo aporta evidencia contraria.",
+        "La tarificación podría basarse en un giro que ya no corresponde.",
+        "Confirmar el giro actual con el cliente.",
+    ),
+    ConflictType.ADVERSE_MEDIA_NOT_IN_WATCHLIST: (
+        "Los datos internos no registran el evento; la fuente pública es menos autoritativa pero específica.",
+        "Puede existir un riesgo no capturado por la watchlist.",
+        "Validar la fuente y, si se confirma, registrar la bandera.",
+    ),
+    ConflictType.COVERAGE_VS_WEB_INDUSTRY: (
+        "La cobertura interna es autoritativa sobre lo contratado, pero no sobre el giro; la web describe el giro.",
+        "La cobertura podría no corresponder a la actividad real del cliente.",
+        "Confirmar qué actividad ampara la póliza.",
+    ),
+}
+
+# Coverages bought only by specific businesses, and the industries consistent with them.
+# Fleet, liability, fire, cargo and miscellaneous are bought by any business: they imply nothing.
+COVERAGE_INDUSTRIES: dict[str, set[str]] = {
+    "Agrícola": {"Agricultura", "Alimentos y Bebidas"},
+    "Ingeniería": {"Construcción", "Inmobiliaria", "Minería", "Manufactura"},
+}
+COVERAGE_MAJORITY = 0.5
+
+
 class _Builder:
     def __init__(self) -> None:
         self.items: list[Conflict] = []
 
     def add(self, ctype: ConflictType, severity: Severity, description: str, sources: list[str]):
+        authority, implication, verify = REASONING[ctype]
         self.items.append(
             Conflict(
                 id=f"C{len(self.items) + 1}",
@@ -53,6 +125,7 @@ class _Builder:
                 severity=severity,
                 description=description,
                 sources=sources,
+                reasoning=f"Autoridad: {authority} Implicación: {implication} Verificar: {verify}",
             )
         )
 
@@ -89,6 +162,7 @@ def detect_conflicts(
     flags: list[RiskFlag],
     anomalies: list[tuple[str, list[str]]],
     web: WebResearch | None = None,
+    relationship: Relationship | None = None,
 ) -> list[Conflict]:
     b = _Builder()
 
@@ -152,12 +226,27 @@ def detect_conflicts(
     for description, sources in anomalies:
         b.add(ConflictType.DATA_ANOMALY, Severity.LOW, description, sources[:20])
 
-    _web_conflicts(b, identity, flags, web)
+    _web_conflicts(b, identity, flags, web, relationship)
     return b.items
 
 
+def dominant_specific_coverage(relationship: Relationship | None) -> tuple[str, float] | None:
+    """The coverage that implies an industry, if it holds the majority of written premium."""
+    if relationship is None or not relationship.total_premium_mxn:
+        return None
+    for line in relationship.coverage_mix:
+        share = line.premium_mxn / relationship.total_premium_mxn
+        if line.coverage_type in COVERAGE_INDUSTRIES and share > COVERAGE_MAJORITY:
+            return line.coverage_type, share
+    return None
+
+
 def _web_conflicts(
-    b: _Builder, identity: CompanyIdentity | None, flags: list[RiskFlag], web: WebResearch | None
+    b: _Builder,
+    identity: CompanyIdentity | None,
+    flags: list[RiskFlag],
+    web: WebResearch | None,
+    relationship: Relationship | None = None,
 ) -> None:
     """Internal data stays authoritative: web evidence only raises conflicts, never overwrites."""
     adverse = confirmed_adverse(web)
@@ -186,9 +275,24 @@ def _web_conflicts(
             f'en la watchlist: "{f.claim}"',
             [f.id],
         )
+    web_industry = web.identity.industry if web is not None and web.identity is not None else None
+    dominant = dominant_specific_coverage(relationship)
+    if identity is not None and web_industry and dominant:
+        coverage, share = dominant
+        if web_industry not in COVERAGE_INDUSTRIES[coverage]:
+            b.add(
+                ConflictType.COVERAGE_VS_WEB_INDUSTRY,
+                Severity.MEDIUM,
+                f"El {share:.0%} de la prima es de cobertura '{coverage}', propia de "
+                f"{', '.join(sorted(COVERAGE_INDUSTRIES[coverage]))}, pero las fuentes públicas "
+                f"describen a la empresa como '{web_industry}'.",
+                [f"portfolio:client:{identity.client_id}", *[f.id for f in web.findings[:3]]],
+            )
+    # Only a *recorded* industry can be contradicted; a web-filled one is the web's own value.
     if (
         identity is not None
         and identity.industry
+        and identity.industry_source == "portfolio"
         and web is not None
         and web.identity is not None
         and web.identity.industry
