@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from uw_agent.resolution.models import ResolutionResult
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
 
 
 class ProfileStatus(StrEnum):
@@ -54,6 +54,7 @@ class ConflictType(StrEnum):
     WATCHLIST_STATUS_VS_NEWS = "WATCHLIST_STATUS_VS_NEWS"
     INDUSTRY_WEB_MISMATCH = "INDUSTRY_WEB_MISMATCH"
     ADVERSE_MEDIA_NOT_IN_WATCHLIST = "ADVERSE_MEDIA_NOT_IN_WATCHLIST"
+    COVERAGE_VS_WEB_INDUSTRY = "COVERAGE_VS_WEB_INDUSTRY"
 
 
 class ConfidenceLevel(StrEnum):
@@ -94,7 +95,13 @@ class CompanyIdentity(BaseModel):
     name_variants: list[str]
     state: str
     municipality: str
-    industry: str | None = Field(description="Portfolio industry; null when never recorded")
+    industry: str | None = Field(
+        description="Recorded industry; when absent, the web industry (see industry_source)"
+    )
+    industry_source: str | None = Field(
+        default=None,
+        description="portfolio | web | null. The web fills a missing industry, never overrides one",
+    )
     evidence: list[str]
 
 
@@ -227,6 +234,10 @@ class Conflict(BaseModel):
     severity: Severity
     description: str
     sources: list[str]
+    reasoning: str = Field(
+        default="",
+        description="Which source is more authoritative and why, implication, what to verify",
+    )
     resolution: str = "unresolved"
 
 
